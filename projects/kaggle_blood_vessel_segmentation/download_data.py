@@ -13,7 +13,7 @@ path_origin_zipfile = path_origin / 'blood-vessel-segmentation.zip'  # Dataset s
 
 
 path_target = 'D:\\data\\blood-vessel-segmentation'
-run_download = False
+run_download = True  # Use False if download was successful but extraction was interrupted
 
 
 if run_download:
@@ -22,6 +22,6 @@ else:
     if not Path.exists(path_origin):
         raise OSError('Data not downloaded. Flip run_download toggle to True.')
     od.utils.archive.extract_archive(from_path=str(path_origin), to_path=str(path_target))
+    path_origin_zipfile.unlink()
 
-path_origin_zipfile.unlink()
 Path.rename(path_origin, path_target)  # copy
