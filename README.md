@@ -32,6 +32,8 @@ Install the following prerequisites:
 interpreter. The utilities contains shared libraries - its dependencies are built into those of other repos.  
 6) Docker 
    a) To install in custom location, use: start /w “” “Docker Desktop Installer.exe” install --installation-dir=G:\Docker
+7) In Pycharm settings, define all submodules torch-control/utils, torch-control/nnUnet as Source. Alternatively, use 
+   conda develop [each_full_path]
 
 ## Repository Organization 
 
