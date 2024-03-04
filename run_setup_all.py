@@ -16,18 +16,19 @@ def main():
     clean_install = False
 
     shared_deps = ['opendatasets']
-    # Install dependencies that are not part of submodule requirements but are useful for running torch-control
-    # experiments without switching to a dedicated interpreter.  Using pip to install since some deps are not on the
-    # conda default channel
-    for shared_dep in shared_deps:
-        command_install = 'conda run -n base pip install ' + shared_dep
-        retcode, text = run_command(command_install)
 
     for env_name in envs:
         if clean_install:
             run_command(f'conda remove -n {env_name}')
 
         env_name = conda_create(env_name=env_name)
+
+        # Install dependencies that are not part of submodule requirements but are useful for running torch-control
+        # experiments without switching to a dedicated interpreter.  Using pip to install since some deps are not on the
+        # conda default channel
+        for shared_dep in shared_deps:
+            command_install = f'conda run -n {env_name} pip install {shared_dep}'
+            retcode, text = run_command(command_install)
 
         if envs[env_name]['install_method'] == 'setup_py':
             install_hard_linked_pytorch(env_name)
