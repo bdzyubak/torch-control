@@ -5,6 +5,7 @@ import json
 import argparse
 from PIL import Image
 import numpy as np
+import opendatasets as od
 
 from nnunetv2.experiment_planning.plan_and_preprocess_entrypoints import plan_and_preprocess
 from nnunetv2.utilities.default_n_proc_DA import get_allowed_n_proc_DA
@@ -18,7 +19,10 @@ def main(args):
     dataset_name = 'BloodVesselSegmentation'
     dataset_id = 501
     dataset_name_id = '_'.join([str(dataset_id), dataset_name])
-    extension, file_channel_suffix, path_origin, path_target = _setup_paths(dataset_name_id)
+    extension, file_channel_suffix, path_target = _setup_paths(dataset_name_id)
+
+    if not args.skip_download():
+        _download_and_extract_data(path_download=args.path_download)
 
     if not args.skip_copy:
         if path_target.exists():
@@ -37,7 +41,7 @@ def main(args):
             if not path_target_labels.exists():
                 path_target_labels.mkdir()
 
-            path_origin_traintest = path_origin / data_type
+            path_origin_traintest = path_download / data_type
             subdirs = [name for name in list(path_origin_traintest.glob('*')) if name.is_dir()]
             subdirs = [name for name in subdirs if name.stem != 'kidney_3_dense']  # Drop corrupt dataset with no images
 
@@ -60,6 +64,24 @@ def main(args):
     zipped_files = list(Path(preprocessed_dataset_folder).glob('*.npz'))
     for file in zipped_files:
         file.unlink()
+
+
+def _download_and_extract_data(path_download, skip_unzip=False):
+    # Log into Kaggle and generate access token. You must also accept the competition rules.
+    # The token will be read automatically if it is in the same directory as this file, but for security reasons, it cannot
+    # be part of the source code. So, copy the credentials manually, since this is a one-time deal
+    dataset = 'https://www.kaggle.com/competitions/blood-vessel-segmentation/data'
+    path_origin = Path(__file__).parent / 'blood-vessel-segmentation'
+    path_origin_zipfile = path_origin / 'blood-vessel-segmentation.zip'  # Dataset specific. Enter manually
+
+    od.download(dataset)
+
+    if not skip_unzip:
+        if not Path.exists(path_origin):
+            raise OSError('Data not downloaded. Flip run_download toggle to True.')
+        od.utils.archive.extract_archive(from_path=str(path_origin), to_path=str(path_download))
+        path_origin_zipfile.unlink()
+    Path.rename(path_origin, path_download)  # copy
 
 
 def _copy_files_all_subdirs(data_type, extension, file_channel_suffix, path_target_images, path_target_labels, subdirs):
@@ -108,12 +130,11 @@ def _copy_files_for_scan(case_index, data_type, extension, file_channel_suffix, 
 
 
 def _setup_paths(dataset_name_id):
-    path_origin = Path(r"D:\data\blood-vessel-segmentation")
     nnUnet_raw = Path(os.environ['nnUnet_raw'])
     extension = '.tif'
     file_channel_suffix = '0000'
     path_target = nnUnet_raw / ('Dataset' + dataset_name_id)
-    return extension, file_channel_suffix, path_origin, path_target
+    return extension, file_channel_suffix, path_target
 
 
 def _copy_files_for_scan_and_type(case_index, extension, file_channel_suffix, files_origin, path_target_full):
@@ -148,8 +169,12 @@ def _save_dataset_json(path_target, num_training, extension):
 
 def parse_command_line_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--skip_copy', action='store_true',
+    parser.add_argument('--path_download', default=r"D:\data\blood-vessel-segmentation",
+                        help="Path to which to download data.")
+    parser.add_argument('--skip_download', action='store_true',
                         help="Skip downloading and copying data to nnUnet_raw")
+    parser.add_argument('--skip_copy', action='store_true',
+                        help="Skip copying/reformatting data to nnUnet_raw")
     parser.add_argument('--skip_preprocess', action='store_true',
                         help="Skip preprocessing.")
     parser.add_argument('--configurations', required=False, default=['2d', '3d_fullres', '3d_lowres'],
