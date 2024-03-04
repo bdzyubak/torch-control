@@ -7,6 +7,10 @@ from PIL import Image
 import numpy as np
 
 from nnunetv2.experiment_planning.plan_and_preprocess_entrypoints import plan_and_preprocess
+from nnunetv2.utilities.default_n_proc_DA import get_allowed_n_proc_DA
+from nnunetv2.training.dataloading.utils import unpack_dataset
+from nnunetv2.paths import nnUNet_preprocessed
+
 from utils.os_utilities import get_file
 
 
@@ -43,11 +47,19 @@ def main(args):
             if data_type == 'train':
                 _save_dataset_json(path_target=path_target, num_training=case_index, extension=extension)
 
-            args.run_preprocessing = True  # Rerun processing if source data was updated.
+            args.skip_preprocess = False  # Rerun processing if source data was updated.
             print(f'Done copying files.')
 
-    plan_and_preprocess(dataset_id=dataset_id, check_dataset_integrity=True,
-                        configurations_to_run=['2d'])  # Since data is 2d, only this config is available
+    if not args.skip_preprocess:
+        plan_and_preprocess(dataset_id=dataset_id, check_dataset_integrity=True,
+                            configurations_to_run=args.configurations)  # Since data is 2d, only this config is available
+
+    preprocessed_dataset_folder = os.path.join(nnUNet_preprocessed, 'Dataset'+dataset_name_id, 'nnUNetPlans_2d')
+    unpack_dataset(preprocessed_dataset_folder, unpack_segmentation=True, overwrite_existing=False,
+                   num_processes=max(1, round(get_allowed_n_proc_DA() // 2)))
+    zipped_files = list(Path(preprocessed_dataset_folder).glob('*.npz'))
+    for file in zipped_files:
+        file.unlink()
 
 
 def _copy_files_all_subdirs(data_type, extension, file_channel_suffix, path_target_images, path_target_labels, subdirs):
@@ -138,12 +150,18 @@ def parse_command_line_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--skip_copy', action='store_true',
                         help="Skip downloading and copying data to nnUnet_raw")
+    parser.add_argument('--skip_preprocess', action='store_true',
+                        help="Skip preprocessing.")
     parser.add_argument('--configurations', required=False, default=['2d', '3d_fullres', '3d_lowres'],
                         nargs='+',
                         help='[OPTIONAL] Configurations for which the preprocessing should be run. Default: 2d 3d_fullres '
                              '3d_lowres. 3d_cascade_fullres does not need to be specified because it uses the data '
                              'from 3d_fullres. Configurations that do not exist for some dataset will be skipped.')
     args = parser.parse_args()
+
+    if args.skip_preprocess:
+        args.skip_copy = True
+
     return args
 
 

@@ -1,7 +1,5 @@
-import pandas as pd
 from pathlib import Path
 import opendatasets as od
-import shutil
 
 
 # Log into Kaggle and generate access token. You must also accept the competition rules.

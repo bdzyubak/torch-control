@@ -5,7 +5,7 @@
       <sourceFolder url="file://$MODULE_DIR$/nnUNet" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/utils" isTestSource="false" />
     </content>
-    <orderEntry type="inheritedJdk" />
+    <orderEntry type="jdk" jdkName="nnunet (2)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
   </component>
   <component name="PackageRequirementsSettings">
