@@ -1,6 +1,6 @@
-from conda_utilities import check_conda_installed, execute_setup_py_in_conda_env, develop_submodules, conda_create, \
+from conda_utils import check_conda_installed, execute_setup_py_in_conda_env, develop_submodules, conda_create, \
     install_hard_linked_pytorch
-from utils.os_utilities import run_command
+from utils.os_utils import run_command
 
 
 def main():
@@ -15,7 +15,7 @@ def main():
     develop_paths = False
     clean_install = False
 
-    shared_deps = ['opendatasets']
+    shared_deps = ['opendatasets', 'hiddenlayer']
 
     for env_name in envs:
         if clean_install:
