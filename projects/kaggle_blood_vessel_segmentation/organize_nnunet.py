@@ -9,7 +9,6 @@ import opendatasets as od
 
 from nnunetv2.experiment_planning.plan_and_preprocess_entrypoints import plan_and_preprocess
 from nnunetv2.utilities.default_n_proc_DA import get_allowed_n_proc_DA
-from nnunetv2.configuration import default_num_processes
 from nnunetv2.training.dataloading.utils import unpack_dataset
 from nnunetv2.paths import nnUNet_preprocessed
 
