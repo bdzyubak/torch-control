@@ -9,6 +9,7 @@ import opendatasets as od
 
 from nnunetv2.experiment_planning.plan_and_preprocess_entrypoints import plan_and_preprocess
 from nnunetv2.utilities.default_n_proc_DA import get_allowed_n_proc_DA
+from nnunetv2.configuration import default_num_processes
 from nnunetv2.training.dataloading.utils import unpack_dataset
 from nnunetv2.paths import nnUNet_preprocessed
 
@@ -188,7 +189,7 @@ def parse_command_line_args():
                         help='[OPTIONAL] Configurations for which the preprocessing should be run. Default: 2d 3d_fullres'
                              '3d_lowres. 3d_cascade_fullres does not need to be specified because it uses the data '
                              'from 3d_fullres. Configurations that do not exist for some dataset will be skipped.')
-    parser.add_argument('--num_proc', default=None, type=int,
+    parser.add_argument('--num_proc', default=1, type=int,
                         help='Override default number of parallel processing. Value of 1 will avoid parallelization and '
                              'is useful for debugging.')
     args = parser.parse_args()
