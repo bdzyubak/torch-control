@@ -12,7 +12,7 @@ from nnunetv2.utilities.default_n_proc_DA import get_allowed_n_proc_DA
 from nnunetv2.training.dataloading.utils import unpack_dataset
 from nnunetv2.paths import nnUNet_preprocessed
 
-from utils.os_utilities import get_file
+from utils.os_utils import get_file
 
 
 def main(args):
@@ -21,8 +21,10 @@ def main(args):
     dataset_name_id = '_'.join([str(dataset_id), dataset_name])
     extension, file_channel_suffix, path_target = _setup_paths(dataset_name_id)
 
-    if not args.skip_download():
+    if not args.skip_download:
         _download_and_extract_data(path_download=args.path_download)
+        print(f'Done downloading files.')
+        args.skip_copy, args.skip_preprocess = False, False
 
     if not args.skip_copy:
         if path_target.exists():
@@ -41,7 +43,7 @@ def main(args):
             if not path_target_labels.exists():
                 path_target_labels.mkdir()
 
-            path_origin_traintest = path_download / data_type
+            path_origin_traintest = args.path_download / data_type
             subdirs = [name for name in list(path_origin_traintest.glob('*')) if name.is_dir()]
             subdirs = [name for name in subdirs if name.stem != 'kidney_3_dense']  # Drop corrupt dataset with no images
 
@@ -56,14 +58,18 @@ def main(args):
 
     if not args.skip_preprocess:
         plan_and_preprocess(dataset_id=dataset_id, check_dataset_integrity=True,
-                            configurations_to_run=args.configurations)  # Since data is 2d, only this config is available
+                            configurations_to_run=args.configurations,  # Since data is 2d, only this config is available
+                            num_processes_fingerprinting=args.num_proc, num_processes_preprocessing=args.num_proc)
+        print(f'Done preprocessing')
 
     preprocessed_dataset_folder = os.path.join(nnUNet_preprocessed, 'Dataset'+dataset_name_id, 'nnUNetPlans_2d')
     unpack_dataset(preprocessed_dataset_folder, unpack_segmentation=True, overwrite_existing=False,
                    num_processes=max(1, round(get_allowed_n_proc_DA() // 2)))
-    zipped_files = list(Path(preprocessed_dataset_folder).glob('*.npz'))
-    for file in zipped_files:
-        file.unlink()
+    print('Done unpacking.')
+
+    # zipped_files = list(Path(preprocessed_dataset_folder).glob('*.npz'))
+    # for file in zipped_files:
+    #     file.unlink()
 
 
 def _download_and_extract_data(path_download, skip_unzip=False):
@@ -81,7 +87,7 @@ def _download_and_extract_data(path_download, skip_unzip=False):
             raise OSError('Data not downloaded. Flip run_download toggle to True.')
         od.utils.archive.extract_archive(from_path=str(path_origin), to_path=str(path_download))
         path_origin_zipfile.unlink()
-    Path.rename(path_origin, path_download)  # copy
+    Path.rename(path_origin, path_download)  # move
 
 
 def _copy_files_all_subdirs(data_type, extension, file_channel_suffix, path_target_images, path_target_labels, subdirs):
@@ -169,7 +175,7 @@ def _save_dataset_json(path_target, num_training, extension):
 
 def parse_command_line_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--path_download', default=r"D:\data\blood-vessel-segmentation",
+    parser.add_argument('--path_download', default=Path(r"D:\data\blood-vessel-segmentation"), type=Path,
                         help="Path to which to download data.")
     parser.add_argument('--skip_download', action='store_true',
                         help="Skip downloading and copying data to nnUnet_raw")
@@ -179,13 +185,18 @@ def parse_command_line_args():
                         help="Skip preprocessing.")
     parser.add_argument('--configurations', required=False, default=['2d', '3d_fullres', '3d_lowres'],
                         nargs='+',
-                        help='[OPTIONAL] Configurations for which the preprocessing should be run. Default: 2d 3d_fullres '
+                        help='[OPTIONAL] Configurations for which the preprocessing should be run. Default: 2d 3d_fullres'
                              '3d_lowres. 3d_cascade_fullres does not need to be specified because it uses the data '
                              'from 3d_fullres. Configurations that do not exist for some dataset will be skipped.')
+    parser.add_argument('--num_proc', default=None, type=int,
+                        help='Override default number of parallel processing. Value of 1 will avoid parallelization and '
+                             'is useful for debugging.')
     args = parser.parse_args()
 
     if args.skip_preprocess:
         args.skip_copy = True
+    if args.skip_copy:
+        args.skip_download = True
 
     return args
 
