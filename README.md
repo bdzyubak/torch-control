@@ -46,9 +46,9 @@ own conda environment to run, created by the relevant installer.
 
 1) <span style="color:green"> Blood Vessel Segmentation </span> 
    
-   a) Use the following script to [download and organize data](torch-control/projects/kaggle_blood_vessel_segmentation/organize_nnunet.py)
+   a) Use the following script to [download and organize data](projects/kaggle_blood_vessel_segmentation/organize_nnunet.py)
    
-   b) Train nnUnet by calling [run_training](torch-control/nnUNet/run_training.py) with input arguments 501 2d (Dataset ID, architecture 
+   b) Train nnUnet by calling [run_training](nnUNet/run_training.py) with input arguments 501 2d (Dataset ID, architecture 
       template)
 
 ## Operating Systems Notes 
