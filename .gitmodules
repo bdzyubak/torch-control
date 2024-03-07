@@ -1,0 +1,6 @@
+[submodule "nnUNet"]
+	path = nnUNet
+	url = https://github.com/bdzyubak/nnUNet
+[submodule "utils"]
+	path = utils
+	url = https://github.com/bdzyubak/utils

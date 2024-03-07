@@ -22,16 +22,18 @@ images, and also exploring Natural Language Processing + GANs.
 Install the following prerequisites:
 1) Anaconda (>=2023) 
 2) Version control and git (e.g. GitKraken)
-3) Docker 
-   a) To install in custom location, use: start /w “” “Docker Desktop Installer.exe” install --installation-dir=G:\Docker
-4) If computation on GPU is desired, install CUDA, cuDNN, and Zlib per: 
-    https://docs.nvidia.com/cuda/cuda-installation-guide-microsoft-windows/index.html, 
-    https://docs.nvidia.com/deeplearning/cudnn/install-guide/index.html
-5) [Pytorch](https://pytorch.org/get-started/locally/) with GPU support, if desired
+3) [Pytorch](https://pytorch.org/get-started/locally/) with GPU support, if desired
    a) e.g. conda install pytorch torchvision torchaudio pytorch-cuda=12.1 -c pytorch -c nvidia
-   b) Separate cuDNN, zlib, CUDA drivers installation is not required with this method
-6) To run a given sub-repo, run the run_setup.py file in it to create a conda environment, and select it as the 
+   b) Separate cuDNN, zlib, CUDA drivers installation is not required with this method.
+   c) The procedure fails on Linux for me. CUDA drivers need to be pre-installed and it has to be done using the 
+      runfile method, e.g. https://developer.nvidia.com/cuda-downloads?target_os=Linux&target_arch=x86_64&Distribution=Ubuntu&target_version=22.04&target_type=runfile_local
+4) Conda install opendasets (to access Kaggle Competition data used in this project)
+5) To run a given sub-repo, run the run_setup.py file in it to create a conda environment, and select it as the 
 interpreter. The utilities contains shared libraries - its dependencies are built into those of other repos.  
+6) Docker 
+   a) To install in custom location, use: start /w “” “Docker Desktop Installer.exe” install --installation-dir=G:\Docker
+7) In Pycharm settings, define all submodules torch-control/utils, torch-control/nnUnet as Source. Alternatively, use 
+   conda develop [each_full_path]
 
 ## Repository Organization 
 
