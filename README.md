@@ -26,7 +26,7 @@ Install the following prerequisites:
    a) e.g. conda install pytorch torchvision torchaudio pytorch-cuda=12.1 -c pytorch -c nvidia
    b) Separate cuDNN, zlib, CUDA drivers installation is not required with this method.
    c) The procedure fails on Linux for me. CUDA drivers need to be pre-installed and it has to be done using the 
-      runfile method, e.g. https://developer.nvidia.com/cuda-downloads?target_os=Linux&target_arch=x86_64&Distribution=Ubuntu&target_version=22.04&target_type=runfile_local
+      runfile method, [for example](https://developer.nvidia.com/cuda-downloads?target_os=Linux&target_arch=x86_64&Distribution=Ubuntu&target_version=22.04&target_type=runfile_local).
 4) Conda install opendasets (to access Kaggle Competition data used in this project)
 5) To run a given sub-repo, run the run_setup.py file in it to create a conda environment, and select it as the 
 interpreter. The utilities contains shared libraries - its dependencies are built into those of other repos.  
@@ -41,6 +41,15 @@ This repository is a top-level controller for running training/inference on a va
 performance of architectures/training methods. It contains largely contains entrypoint scripts. The utils submodule 
 contains shared functions that can be imported by the controller or any of the AI repos. Each AI sub repo requires its 
 own conda environment to run, created by the relevant installer.
+
+## Available experiments 
+
+1) <span style="color:green"> Blood Vessel Segmentation </span> 
+   
+   a) Use the following script to [download and organize data](torch-control/projects/kaggle_blood_vessel_segmentation/organize_nnunet.py)
+   
+   b) Train nnUnet by calling [run_training](torch-control/nnUNet/run_training.py) with input arguments 501 2d (Dataset ID, architecture 
+      template)
 
 ## Operating Systems Notes 
 
