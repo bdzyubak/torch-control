@@ -17,6 +17,9 @@ interfaces, and adding ways to mix-and-match architectures and training/inferenc
 medical image analysis. Consequently, to expand horizons, I will be applying image analysis models to non-MRI/CT/PET 
 images, and also exploring Natural Language Processing + GANs.
 
+<span style="color:teal">Sample nnUnet training curve</span>\
+The loss is negative because dice loss is defined as (-dice) not (1-dice)
+![plot](https://private-user-images.githubusercontent.com/37943739/311277642-9f465a27-50f0-40a9-b43f-69914f3bc3cb.png?jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3MDk5MTE2NjYsIm5iZiI6MTcwOTkxMTM2NiwicGF0aCI6Ii8zNzk0MzczOS8zMTEyNzc2NDItOWY0NjVhMjctNTBmMC00MGE5LWI0M2YtNjk5MTRmM2JjM2NiLnBuZz9YLUFtei1BbGdvcml0aG09QVdTNC1ITUFDLVNIQTI1NiZYLUFtei1DcmVkZW50aWFsPUFLSUFWQ09EWUxTQTUzUFFLNFpBJTJGMjAyNDAzMDglMkZ1cy1lYXN0LTElMkZzMyUyRmF3czRfcmVxdWVzdCZYLUFtei1EYXRlPTIwMjQwMzA4VDE1MjI0NlomWC1BbXotRXhwaXJlcz0zMDAmWC1BbXotU2lnbmF0dXJlPTIzYTY5ODQ0NTc5OWZlOWIyOWZiODEwZTM5NzU4ZWRmMmNiMDhkNmFhOGYxZGNmMjNhNzRiZmFlYzFkZDljOTAmWC1BbXotU2lnbmVkSGVhZGVycz1ob3N0JmFjdG9yX2lkPTAma2V5X2lkPTAmcmVwb19pZD0wIn0.9VUkeKL1qha61bXqnlxgkCMbNkfW--_FMjSlJBQGGJk)
 
 ## Installation
 Install the following prerequisites:
@@ -44,12 +47,13 @@ own conda environment to run, created by the relevant installer.
 
 ## Available experiments 
 
-1) <span style="color:green"> Blood Vessel Segmentation </span> 
+1) <span style="color:teal"> Blood Vessel Segmentation </span> 
    
    a) Use the following script to [download and organize data](projects/kaggle_blood_vessel_segmentation/organize_nnunet.py)
    
-   b) Train nnUnet by calling [run_training](nnUNet/run_training.py) with input arguments 501 2d (Dataset ID, architecture 
+   b) Train [nnUnet](https://github.com/MIC-DKFZ/nnUNet) by calling "nnUNet/run_training.py 501 2d" (Dataset ID, architecture 
       template)
+
 
 ## Operating Systems Notes 
 
