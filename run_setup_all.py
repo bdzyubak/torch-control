@@ -10,12 +10,15 @@ def main():
     # want to pin specific versions of all dependencies.
 
     check_conda_installed()
+
     # TODO: develop command line inputs for which envs to install and flags
     envs = {'nnunet': {'install_method': 'setup_py', 'submodule_name': 'nnUNet'}}
     develop_paths = False
     clean_install = False
 
-    shared_deps = ['opendatasets', 'hiddenlayer']
+    # Pip must be first in list to use pip install fallback. Otherwise, global linked pip is used and everything
+    # deps install to base
+    shared_deps = ['pip', 'opendatasets', 'hiddenlayer', 'seaborn', 'openai', 'transformers']
 
     for env_name in envs:
         if clean_install:
@@ -23,12 +26,7 @@ def main():
 
         env_name = conda_create(env_name=env_name)
 
-        # Install dependencies that are not part of submodule requirements but are useful for running torch-control
-        # experiments without switching to a dedicated interpreter.  Using pip to install since some deps are not on the
-        # conda default channel
-        for shared_dep in shared_deps:
-            command_install = f'conda run -n {env_name} pip install {shared_dep}'
-            retcode, text = run_command(command_install)
+        install_shared_dependencies(env_name, shared_deps)
 
         if envs[env_name]['install_method'] == 'setup_py':
             install_hard_linked_pytorch(env_name)
@@ -41,5 +39,28 @@ def main():
             develop_submodules(env_name)
 
 
+def install_shared_dependencies(env_name, shared_deps):
+    # Install dependencies that are not part of submodule requirements but are useful for running torch-control
+    # experiments without switching to a dedicated interpreter.  Using pip to install since some deps are not on the
+    # conda default channel
+    print(f'Installing shared deps to {env_name}.')
+    install_failed = dict()
+    for shared_dep in shared_deps:
+        # Use conda to hard link and conserve space
+        command_install = f'conda install -n {env_name} {shared_dep} -y'
+        retcode, text = run_command(command_install, verbose=verbose)
+
+        if retcode != 0:
+            # Conda install failed, fall back to pip inside conda env
+            # NB: If you did not do conda install -n [env_name] pip, deps will install to base!
+            command_install = f'conda run -n {env_name} python -m pip install {shared_dep}'
+            retcode, text = run_command(command_install, verbose=verbose)
+            if retcode != 0:
+                install_failed[shared_dep] = text
+    if install_failed:
+        raise OSError(f"Failed to install dependencies {install_failed}")
+
+
 if __name__ == "__main__":
+    verbose = True
     main()
