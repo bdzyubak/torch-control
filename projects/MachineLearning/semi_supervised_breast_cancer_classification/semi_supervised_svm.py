@@ -5,6 +5,8 @@ from sklearn import svm
 from sklearn import datasets
 import seaborn as sns
 import matplotlib.pyplot as plt
+plt.rcParams["figure.figsize"] = (12, 8)
+plt.rcParams.update({'font.size': 22})  # must set in top
 from pathlib import Path
 
 
@@ -54,9 +56,8 @@ if run_training:
 
     print(f"The prediction on test cases without using semi-supervised learning is: {acc_test_ignore}")
     iteration_names = [f"Iter_{name}_acc" for name in range(1, iterations + 1)]
-    df_test_results = pd.DataFrame(index=conf_cutoffs, columns=iteration_names)
 
-    acc_all_cutoffs = list()
+    df_test_results = pd.DataFrame(columns=['no_relabel']+conf_cutoffs)
     for cutoff in conf_cutoffs:
         acc = list()
         X_train_labeled_iter = X_train_labeled.copy()
@@ -87,22 +88,24 @@ if run_training:
                 break
             else:
                 X_unl_pred_prob_iter = clf.predict_proba(X_train_unlabeled_iter)
-        acc_all_cutoffs.append([cutoff] + acc)
+        df_test_results[cutoff] = acc
 
     # Add row with no semi-supervised relabeling
-    acc_all_cutoffs.append(['no_relabel'] + [acc_test_ignore] * iterations)
-    df_test_results = pd.DataFrame(acc_all_cutoffs, columns=['cutoff']+iteration_names)
+    df_test_results['no_relabel'] = [acc_test_ignore] * iterations
 
     df_test_results.to_csv(path_csv)
 
 df_test_results = pd.read_csv(path_csv)
 
 
-# plt.figure()
-# plt.rcParams.update({'font.size': 22})  # must set in top
+plt.figure()
+
 # figManager = plt.get_current_fig_manager()
 # figManager.window.showMaximized()
-# df['pred_max_prob'].plot.hist()
 color_palette = sns.color_palette()
-for i in range(len(df_test_results)):
-    sns.lineplot(data=df_test_results.iloc[:, 2:], palette=color_palette, legend=True)
+# plot = sns.lineplot(data=df_test_results['no_relabel'], palette=color_palette)
+plot = sns.lineplot(data=df_test_results[df_test_results.columns[1:]], palette=color_palette, legend=True)
+sns.move_legend(plot.axes, 'center right')
+plt.xlabel('Re-labeling Iteration')
+plt.ylabel('Classification Accuracy')
+plt.show()
