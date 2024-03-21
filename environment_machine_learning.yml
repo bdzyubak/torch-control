@@ -1,0 +1,11 @@
+name: ml
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - scikit-learn
+  - pandas
+  - graphviz
+  - pydotplus
+  - seaborn
+  - IPython

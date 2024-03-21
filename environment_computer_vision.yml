@@ -1,0 +1,5 @@
+name: nnunet
+
+dependencies:
+  - python=3.11
+  - torch

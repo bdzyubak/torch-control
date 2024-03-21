@@ -1,0 +1,10 @@
+# Don't install this directly.
+# Use conda env update --name env_name --file environment_shared.yml --prune to extend an existing environment
+name: shared
+dependencies:
+  - numpy
+  - pip
+  - matplotlib
+  - seaborn
+  - opendatasets
+  - pandas
