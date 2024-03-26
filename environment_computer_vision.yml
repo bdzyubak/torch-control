@@ -1,5 +1,8 @@
-name: nnunet
+name: cv
 
 dependencies:
+  # Put as many dependencies as possible at top level
   - python=3.11
-  - torch
+  - pip
+#  - pip:
+#      - Extend, if cannot be installed with anaconda
