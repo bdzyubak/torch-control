@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Union, Optional
 
 from sklearn import svm
+from sklearn.tree import DecisionTreeClassifier
 from sklearn.model_selection import train_test_split
 
 
@@ -21,6 +22,8 @@ def train_val_semi_supervised(X: np.ndarray, y: np.ndarray, path_csv: Union[str,
           f"{X_test.shape} test cases.")
     if model_name.upper() == 'SVM':
         model = svm.SVC(kernel='linear', probability=True, C=1)
+    elif model_name.upper() == 'DT':
+        model = DecisionTreeClassifier()
     else:
         raise ValueError(f'Unrecognized model name {model_name}')
 
@@ -55,7 +58,7 @@ def train_val_semi_supervised(X: np.ndarray, y: np.ndarray, path_csv: Union[str,
                   f"{X_train_labeled_iter.shape[0]}, including {X_train_labeled_iter.shape[0] - X_train_labeled.shape[0]}"
                   f" model-labeled cases. There are {X_train_unlabeled_iter.shape[0]} more unlabeled cases.")
 
-            clf = svm.SVC(kernel='linear', probability=True).fit(X_train_labeled_iter, y_train_labeled_iter)
+            clf = model.fit(X_train_labeled_iter, y_train_labeled_iter)
             acc_iter = round(clf.score(X_test, y_test), 5)
             print(f"The accuracy for this iteration is {acc_iter}")
             acc.append(acc_iter)
@@ -73,3 +76,4 @@ def train_val_semi_supervised(X: np.ndarray, y: np.ndarray, path_csv: Union[str,
     df_test_results['Accuracy: No Relabeling'] = [acc_test_ignore] * iterations
     df_test_results['Unlabeled: No Relabeling'] = [X_unl_pred_prob.shape[0]] * iterations
     df_test_results.to_csv(path_csv)
+    return clf
