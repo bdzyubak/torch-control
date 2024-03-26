@@ -42,7 +42,7 @@ following topics:
    2) [Project Kanban](https://github.com/users/bdzyubak/projects/2/views/1) 
    3) <span style="color:teal">Sample nnUnet training curve</span>\
 The loss is negative because dice loss is defined as (-dice) not (1-dice)
-![plot](https://private-user-images.githubusercontent.com/37943739/311277642-9f465a27-50f0-40a9-b43f-69914f3bc3cb.png?jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3MDk5MTE2NjYsIm5iZiI6MTcwOTkxMTM2NiwicGF0aCI6Ii8zNzk0MzczOS8zMTEyNzc2NDItOWY0NjVhMjctNTBmMC00MGE5LWI0M2YtNjk5MTRmM2JjM2NiLnBuZz9YLUFtei1BbGdvcml0aG09QVdTNC1ITUFDLVNIQTI1NiZYLUFtei1DcmVkZW50aWFsPUFLSUFWQ09EWUxTQTUzUFFLNFpBJTJGMjAyNDAzMDglMkZ1cy1lYXN0LTElMkZzMyUyRmF3czRfcmVxdWVzdCZYLUFtei1EYXRlPTIwMjQwMzA4VDE1MjI0NlomWC1BbXotRXhwaXJlcz0zMDAmWC1BbXotU2lnbmF0dXJlPTIzYTY5ODQ0NTc5OWZlOWIyOWZiODEwZTM5NzU4ZWRmMmNiMDhkNmFhOGYxZGNmMjNhNzRiZmFlYzFkZDljOTAmWC1BbXotU2lnbmVkSGVhZGVycz1ob3N0JmFjdG9yX2lkPTAma2V5X2lkPTAmcmVwb19pZD0wIn0.9VUkeKL1qha61bXqnlxgkCMbNkfW--_FMjSlJBQGGJk)
+![plot](/projects/ComputerVision/kaggle_blood_vessel_segmentation/sample_training_curve_for_README.png)
 
 2) Natural Language Processing:  
    1) Use the nlp environment created by run_setup_all.py
