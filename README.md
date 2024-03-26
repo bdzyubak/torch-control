@@ -47,9 +47,13 @@ The loss is negative because dice loss is defined as (-dice) not (1-dice)
 2) Natural Language Processing:  
    1) Use the nlp environment created by run_setup_all.py
    2) [Project Kanban](https://github.com/users/bdzyubak/projects/4/views/1) 
-3) Classical Machine Learning 
+3) Machine Learning 
    1) Use the ml environment created by run_setup_all.py
    2) [Project Kanban](https://github.com/users/bdzyubak/projects/5/views/1)
+
+Utils is a submodule repository which contains base level library code for interacting with models, the OS, plotting 
+etc, which can be imported by other repositories such as tensorflow-sandbox, or forked by users separately from 
+torch-control. 
 
 
 ## Available experiments 
