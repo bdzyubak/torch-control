@@ -1,0 +1,9 @@
+name: nlp
+channels:
+  - conda-forge
+dependencies:
+    # Put as many dependencies as possible at top level
+  - python=3.11
+  - transformers
+#  - pip:
+#      - Extend, if cannot be installed with anaconda

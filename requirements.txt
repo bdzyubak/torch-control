@@ -1,0 +1,8 @@
+# For production, use pinned versions. Here, I want to explore the most up to date libraries
+-i https://download.pytorch.org/whl/cu121
+torch
+numpy
+matplotlib
+seaborn
+opendatasets
+pandas
