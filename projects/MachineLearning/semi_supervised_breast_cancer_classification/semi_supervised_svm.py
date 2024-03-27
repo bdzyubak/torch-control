@@ -8,6 +8,7 @@ from pathlib import Path
 
 from services.dataframe_analysis.semisupervised_classification import train_val_semi_supervised
 
+
 run_training = False  # Either run training/evaluation or load results from csv for display
 path_save = Path(r'D:\ValidationResults') / Path(__file__).parent.name
 path_csv = path_save / 'iterative_labeling_results.csv'

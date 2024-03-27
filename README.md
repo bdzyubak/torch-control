@@ -27,6 +27,9 @@ Install the following prerequisites:
 projects (see [Repository Organization](#repository-organization)) 
 4) In Pycharm settings, define all submodules torch-control/utils, torch-control/nnUnet as Source. For running in the 
 command line, these conda paths are developed by run_setup_all.py, but Pycharm overrides the system settings 
+5) To conserve space when downloading NLP models, enable symlinks for cached models 
+([Windows 10](https://consumer.huawei.com/en/support/content/en-us15594140/#:~:text=Click%20the%20Windows%20icon%20and,displayed%20dialog%20box%2C%20select%20Yes), 
+[Windows11](https://learn.microsoft.com/en-us/windows/apps/get-started/enable-your-device-for-development)) 
 
 [//]: # (4&#41; Docker is currently unused, but for futrue reference)
 [//]: # (   a&#41; To install in custom location, use: start /w “” “Docker Desktop Installer.exe” install --installation-dir=G:\Docker)
@@ -58,13 +61,14 @@ torch-control.
 
 ## Available experiments 
 
-1) Blood Vessel Segmentation
+1) CV: Blood Vessel Segmentation
    
    a) Use the following script to [download and organize data](projects/ComputerVision/kaggle_blood_vessel_segmentation/organize_nnunet.py)
 
    b) Train [nnUnet](https://github.com/MIC-DKFZ/nnUNet) by calling "nnUNet/run_training.py 501 2d" (Dataset ID, architecture 
       template)
-
+2) NLP: [Fun with sentiment analysis](projects/NaturalLanguageProcessing/LLMTutorialsHuggingFace/transformers_sentiment_analysis.py)
+3) ML: [Semi-supervised learning](projects/MachineLearning/semi_supervised_breast_cancer_classification/semi_supervised_svm.py)
 
 ## Operating Systems Notes 
 
