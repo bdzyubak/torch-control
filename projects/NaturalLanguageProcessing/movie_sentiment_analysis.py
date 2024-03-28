@@ -28,7 +28,7 @@ def main():
     # "occasionally amuses" and "none of which amounts to much of a story" all map to the label of the combination of
     # these. More intelligent non-random splitting based on sentence may improve the results here.
     file_path = r"D:\data\SentimentAnalysisOnMovieReviews\train.tsv"
-    df = read_dataframe(file_path)
+    df = read_dataframe(file_path)  # Use nrows=100 to subsample and debug
 
     model_names = ['distilbert-base-uncased']
     # model_names = ['distilbert-base-uncased', 'ProsusAI/finbert']
@@ -46,7 +46,7 @@ def main():
     train_dataloader, val_dataloader, test_dataloader = data_loading(df_train=df_train, df_val=df_val, df_test=df_test)
 
     for model_name in model_names:
-        model, trainer = model_setup(model_save_dir, train_dataloader,
+        model, trainer = model_setup(model_save_dir,
                                      num_classes=train_dataloader.dataset.__getitem__(0)['labels'].shape[0],
                                      model_name=model_name)
         trainer.fit(model, train_dataloaders=train_dataloader, val_dataloaders=val_dataloader)
@@ -78,11 +78,11 @@ def data_loading(df_train, df_val, df_test, subsample=None):
     return train_dataloader, val_dataloader, test_dataloader
 
 
-def read_dataframe(file_path):
+def read_dataframe(file_path, nrows=None):
     if file_path.endswith('.csv'):
-        df = pd.read_csv(file_path)
+        df = pd.read_csv(file_path, nrows=nrows)
     elif file_path.endswith('.tsv'):
-        df = pd.read_csv(file_path, sep='\t')
+        df = pd.read_csv(file_path, nrows=nrows, sep='\t')
     else:
         raise ValueError(f'Unsupported file type: {file_path}')
     return df
