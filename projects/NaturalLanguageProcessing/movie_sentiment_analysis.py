@@ -32,7 +32,7 @@ def main():
 
     model_names = ['distilbert-base-uncased']
     # model_names = ['distilbert-base-uncased', 'ProsusAI/finbert']
-    model = qc_requested_models_supported(model_names)
+    # qc_requested_models_supported(model_names)
 
     # The actual test file has no sentiments. We're not competing right now, so just split off a subset of train to
     # test generalizability
@@ -43,28 +43,30 @@ def main():
     model_save_dir = Path(r"D:\Models\LLM") / Path(__file__).stem
     model_save_dir.mkdir(exist_ok=True, parents=True)
 
-    train_dataloader, val_dataloader, test_dataloader = data_loading(df_train, df_val, df_test)
+    train_dataloader, val_dataloader, test_dataloader = data_loading(df_train=df_train, df_val=df_val, df_test=df_test)
 
     for model_name in model_names:
-        model, trainer = model_setup(model_save_dir, train_dataloader, model_name=model_name)
+        model, trainer = model_setup(model_save_dir, train_dataloader,
+                                     num_classes=train_dataloader.dataset.__getitem__(0)['labels'].shape[0],
+                                     model_name=model_name)
         trainer.fit(model, train_dataloaders=train_dataloader, val_dataloaders=val_dataloader)
 
     predict(model, test_dataloader)
 
 
-def model_setup(model_save_file, train_dataloader, model_name='distilbert-base-uncased'):
+def model_setup(model_save_file, num_classes, model_name='distilbert-base-uncased'):
     checkpoint_callback = ModelCheckpoint(dirpath=model_save_file,
                                           filename=model_name+"-{epoch:02d}-{val_loss:.2f}",
                                           save_top_k=1,
                                           monitor="val_acc")
     early_stop_callback = EarlyStopping(monitor="val_acc", min_delta=0.0001, patience=5, verbose=False, mode="max")
-    model = FineTuneLLM(num_classes=train_dataloader.dataset.__getitem__(0)['labels'].shape[0],
+    model = FineTuneLLM(num_classes=num_classes,
                         model_name=model_name)
     trainer = pl.Trainer(max_epochs=100, callbacks=[checkpoint_callback, early_stop_callback])
     return model, trainer
 
 
-def data_loading(df_test, df_train, df_val, subsample=None):
+def data_loading(df_train, df_val, df_test, subsample=None):
     train_dataset = KaggleSentimentDataset(df_train, subsample=subsample)  # subsample = 1000 for debug
     val_dataset = KaggleSentimentDataset(df_val, subsample=subsample)
     test_dataset = KaggleSentimentDataset(df_test, subsample=subsample)
