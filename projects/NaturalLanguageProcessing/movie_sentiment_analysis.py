@@ -1,16 +1,19 @@
-import torch
-from torch.utils.data import DataLoader
-from torch.optim import AdamW
 from pathlib import Path
 import pandas as pd
 import numpy as np
-from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score
 
-from transformers import AutoTokenizer, DistilBertForSequenceClassification
+import torch
+from torch.utils.data import DataLoader
+from torch.optim import AdamW
+import lightning as pl
+from lightning.pytorch.callbacks import ModelCheckpoint, EarlyStopping
+
+from transformers import AutoTokenizer
 from transformers import AdamW
 
-from panda_utils import set_display_rows_cols
+from services.LLM_pytorch_lighting_wrapper import FineTuneLLM, qc_requested_models_supported
+from panda_utils import set_display_rows_cols, do_train_val_test_split
 from torch_utils import tensor_to_numpy
 
 # Based on https://towardsdatascience.com/three-out-of-the-box-transformer-models-4bc4880bc992
@@ -27,31 +30,50 @@ def main():
     file_path = r"D:\data\SentimentAnalysisOnMovieReviews\train.tsv"
     df = read_dataframe(file_path)
 
+    model_names = ['distilbert-base-uncased']
+    # model_names = ['distilbert-base-uncased', 'ProsusAI/finbert']
+    model = qc_requested_models_supported(model_names)
+
     # The actual test file has no sentiments. We're not competing right now, so just split off a subset of train to
     # test generalizability
     # file_path = r"D:\data\SentimentAnalysisOnMovieReviews\test.tsv"
     # df_test = read_dataframe(file_path)
-    df_train, df_test_val = train_test_split(df, train_size=0.6)
-    df_val, df_test = train_test_split(df, train_size=0.5)
+    df_test, df_train, df_val = do_train_val_test_split(df)
 
-    model_save_file = Path(r"D:\Models\LLM") / Path(__file__).stem / 'distilbert.pth'
-    model_save_file.parent.mkdir(exist_ok=True, parents=True)
+    model_save_dir = Path(r"D:\Models\LLM") / Path(__file__).stem
+    model_save_dir.mkdir(exist_ok=True, parents=True)
 
-    dataset_train = KaggleSentimentDataset(df_train)  # subsample = 1000 for debug
-    dataset_val = KaggleSentimentDataset(df_val)
-    dataset_test = KaggleSentimentDataset(df_test)
+    train_dataloader, val_dataloader, test_dataloader = data_loading(df_train, df_val, df_test)
 
-    loader_train = DataLoader(dataset_train, batch_size=10, shuffle=True)
-    loader_val = DataLoader(dataset_val, batch_size=10)
-    loader_test = DataLoader(dataset_test, batch_size=10)
+    for model_name in model_names:
+        model, trainer = model_setup(model_save_dir, train_dataloader, model_name=model_name)
+        trainer.fit(model, train_dataloaders=train_dataloader, val_dataloaders=val_dataloader)
 
-    model = DistilBertForSequenceClassification.from_pretrained('distilbert-base-uncased',
-                                                                num_labels=dataset_train.__getitem__(0)['labels'].shape[0])
-    train_model(model, loader_train, loader_val=loader_val, epochs=100)
+    predict(model, test_dataloader)
 
-    torch.save(model.state_dict(), model_save_file.parent / (model_save_file.stem + '_final.pth'))
 
-    predict(model, loader_test)
+def model_setup(model_save_file, train_dataloader, model_name='distilbert-base-uncased'):
+    checkpoint_callback = ModelCheckpoint(dirpath=model_save_file,
+                                          filename=model_name+"-{epoch:02d}-{val_loss:.2f}",
+                                          save_top_k=1,
+                                          monitor="val_acc")
+    early_stop_callback = EarlyStopping(monitor="val_acc", min_delta=0.0001, patience=5, verbose=False, mode="max")
+    model = FineTuneLLM(num_classes=train_dataloader.dataset.__getitem__(0)['labels'].shape[0],
+                        model_name=model_name)
+    trainer = pl.Trainer(max_epochs=100, callbacks=[checkpoint_callback, early_stop_callback])
+    return model, trainer
+
+
+def data_loading(df_test, df_train, df_val, subsample=None):
+    train_dataset = KaggleSentimentDataset(df_train, subsample=subsample)  # subsample = 1000 for debug
+    val_dataset = KaggleSentimentDataset(df_val, subsample=subsample)
+    test_dataset = KaggleSentimentDataset(df_test, subsample=subsample)
+    print(f'The train/val/test split is: {len(train_dataset)}, {len(val_dataset)}, {len(test_dataset)}')
+    # num_workers=3 is recommended by lightining. Depends on available resources and cpu.
+    train_dataloader = DataLoader(train_dataset, batch_size=10, shuffle=True, num_workers=3, persistent_workers=True)
+    val_dataloader = DataLoader(val_dataset, batch_size=10, num_workers=3, persistent_workers=True)
+    test_dataloader = DataLoader(test_dataset, batch_size=10, num_workers=3, persistent_workers=True)
+    return train_dataloader, val_dataloader, test_dataloader
 
 
 def read_dataframe(file_path):
@@ -62,33 +84,6 @@ def read_dataframe(file_path):
     else:
         raise ValueError(f'Unsupported file type: {file_path}')
     return df
-
-
-# def read_tokenize_one_hot_labels_alternative(file_path, tokenizer):
-#     df_train, token_ids_train, attention_mask_train = read_tokenize_data(file_path, tokenizer)
-#     labels_train = one_hot_encode_sentiment(df_train['Sentiment'].values)
-#     return labels_train
-#
-#
-# def read_tokenize_data(file_path, tokenizer):
-#     # initialize lists to contain input IDs and attention masks
-#     token_ids = list()
-#     attention_mask = list()
-#
-#     df = pd.read_csv(file_path, sep='\t')
-#     df = df[:1000]
-#     # loop through each sentence in the input data and encode to ID and mask tensors
-#     for sentence in df['Phrase'].tolist():
-#         tokens = tokenizer.encode_plus(
-#             sentence, max_length=50, truncation=True, padding='max_length',
-#             add_special_tokens=True, return_attention_mask=True,
-#             return_token_type_ids=False, return_tensors='pt')  # return_tensors=pt - Pytorch
-#
-#         # add the input ID and attention mask tensors to respective lists
-#         token_ids.append(tokens['input_ids'])
-#         attention_mask.append(tokens['attention_mask'])
-#
-#     return df, token_ids, attention_mask
 
 
 def one_hot_encode_sentiment(ratings: pd.Series) -> np.ndarray:
@@ -116,16 +111,17 @@ class KaggleSentimentDataset(torch.utils.data.Dataset):
 
         self.examples = self.df['Phrase']
         self.encodings = tokenizer(self.df['Phrase'].to_list(), truncation=True, padding=True)
-        self.labels_one_hot = one_hot_encode_sentiment(self.df['Sentiment'].values)
+        self.labels = one_hot_encode_sentiment(self.df['Sentiment'].values)
         self.labels_class = self.df['Sentiment'].values
 
     def __getitem__(self, idx):
         item = {key: torch.tensor(val[idx]) for key, val in self.encodings.items()}
-        item['labels'] = torch.tensor(self.labels_one_hot[idx], dtype=torch.float32)
+        item['labels'] = torch.tensor(self.labels[idx], dtype=torch.float32)
+        item['labels_class'] = self.labels_class[idx]  # Do not convert to tensor, as this is used for val only
         return item
 
     def __len__(self):
-        return len(self.labels_one_hot)
+        return len(self.labels)
 
 
 def train_model(model, loader_train, model_save_file=None, loader_val=None, epochs=3, device='cuda:0'):
