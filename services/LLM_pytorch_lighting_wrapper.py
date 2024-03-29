@@ -15,7 +15,7 @@ torch.backends.cudnn.allow_tf32 = True
 
 
 class FineTuneLLM(pl.LightningModule):
-    def __init__(self, num_classes, model_name=None, tokenizer=None, device='cuda:0', learning_rate=2e-5):
+    def __init__(self, num_classes, model_name=None, tokenizer=None, device='cuda:0', learning_rate=1e-6):
         super(FineTuneLLM, self).__init__()
         if model_name is None:
             model_name = 'distilbert-base-uncased'  # Lightweight model, good for experimentation
@@ -28,6 +28,7 @@ class FineTuneLLM(pl.LightningModule):
         if tokenizer is None:
             self.tokenizer = DistilBertTokenizer.from_pretrained(model_name)
         self.learning_rate = learning_rate
+        # self.save_hyperparameters()
 
     def forward(self, input_ids, attention_mask, labels=None):
         return self.model(input_ids, attention_mask=attention_mask, labels=labels)

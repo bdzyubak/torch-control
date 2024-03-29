@@ -67,7 +67,7 @@ def model_setup(save_dir, num_classes, model_name='distilbert-base-uncased'):
     model = FineTuneLLM(num_classes=num_classes,
                         model_name=model_name)
     trainer = pl.Trainer(max_epochs=100, callbacks=[checkpoint_callback, early_stop_callback], logger=tb_logger,
-                         log_every_n_steps=1)
+                         log_every_n_steps=50)
     return model, trainer
 
 
