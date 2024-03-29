@@ -8,6 +8,7 @@ from torch.utils.data import DataLoader
 from torch.optim import AdamW
 import lightning as pl
 from lightning.pytorch.callbacks import ModelCheckpoint, EarlyStopping
+from lightning.pytorch import loggers
 
 from transformers import AutoTokenizer
 from transformers import AdamW
@@ -28,7 +29,7 @@ def main():
     # "occasionally amuses" and "none of which amounts to much of a story" all map to the label of the combination of
     # these. More intelligent non-random splitting based on sentence may improve the results here.
     file_path = r"D:\data\SentimentAnalysisOnMovieReviews\train.tsv"
-    df = read_dataframe(file_path)  # Use nrows=100 to subsample and debug
+    df = read_dataframe(file_path)
 
     model_names = ['distilbert-base-uncased']
     # model_names = ['distilbert-base-uncased', 'ProsusAI/finbert']
@@ -50,19 +51,23 @@ def main():
                                      num_classes=train_dataloader.dataset.__getitem__(0)['labels'].shape[0],
                                      model_name=model_name)
         trainer.fit(model, train_dataloaders=train_dataloader, val_dataloaders=val_dataloader)
+        # To see logs, run in command line: tensorboard --logdir=model_save_dir/[version_run_number] and go to the
+        # localhost:6006 in the browser
 
     predict(model, test_dataloader)
 
 
-def model_setup(model_save_file, num_classes, model_name='distilbert-base-uncased'):
-    checkpoint_callback = ModelCheckpoint(dirpath=model_save_file,
+def model_setup(save_dir, num_classes, model_name='distilbert-base-uncased'):
+    checkpoint_callback = ModelCheckpoint(dirpath=save_dir,
                                           filename=model_name+"-{epoch:02d}-{val_loss:.2f}",
                                           save_top_k=1,
                                           monitor="val_acc")
     early_stop_callback = EarlyStopping(monitor="val_acc", min_delta=0.0001, patience=5, verbose=False, mode="max")
+    tb_logger = loggers.TensorBoardLogger(save_dir=save_dir)
     model = FineTuneLLM(num_classes=num_classes,
                         model_name=model_name)
-    trainer = pl.Trainer(max_epochs=100, callbacks=[checkpoint_callback, early_stop_callback])
+    trainer = pl.Trainer(max_epochs=100, callbacks=[checkpoint_callback, early_stop_callback], logger=tb_logger,
+                         log_every_n_steps=1)
     return model, trainer
 
 
