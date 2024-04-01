@@ -58,7 +58,18 @@ torch-control.
 
 ## Available experiments 
 
-1) Blood Vessel Segmentation
+1) [NLP] Movie Sentiment Analysis
+   
+   a) Fine-tuned Distilbert on Kaggle Movie Sentiment analysis dataset. ![plot](/projects/NaturalLanguageProcessing/MovieReviewAnalysis/training_metrics_version_7.png)
+
+   b) WIP: Fine-tune other common networks for comparison
+
+   c) WIP: Evaluate freezing all but sentiment analysis-head layers. 
+
+   d) WIP: Combine with IMDB reviews dataset - compare training on one, validation on the other, then randomly split for cross-val.
+
+
+2) Blood Vessel Segmentation
    
    a) Use the following script to [download and organize data](projects/ComputerVision/kaggle_blood_vessel_segmentation/organize_nnunet.py)
 
