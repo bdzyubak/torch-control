@@ -4,7 +4,7 @@ import torch
 from torch.optim import AdamW
 import lightning as pl
 
-from transformers import DistilBertTokenizer, DistilBertForSequenceClassification
+from transformers import DistilBertTokenizer, DistilBertForSequenceClassification, RobertaTokenizer, RobertaModel
 
 from utils.torch_utils import tensor_to_numpy, average_round_metric
 
@@ -15,18 +15,12 @@ torch.backends.cudnn.allow_tf32 = True
 
 
 class FineTuneLLM(pl.LightningModule):
-    def __init__(self, num_classes, model_name=None, tokenizer=None, device='cuda:0', learning_rate=1e-6):
+    def __init__(self, model, tokenizer, device='cuda:0', learning_rate=1e-6):
         super(FineTuneLLM, self).__init__()
-        if model_name is None:
-            model_name = 'distilbert-base-uncased'  # Lightweight model, good for experimentation
-        if model_name == 'distilbert-base-uncased':
-            self.model = DistilBertForSequenceClassification.from_pretrained(model_name, num_labels=num_classes)
-        else:
-            raise ValueError(f"Model name {model_name} currently unsupported.")
-
+        self.model = model
+        self.tokenizer = tokenizer
         self.model.to(device)
-        if tokenizer is None:
-            self.tokenizer = DistilBertTokenizer.from_pretrained(model_name)
+
         self.learning_rate = learning_rate
         # self.save_hyperparameters()
 
@@ -80,12 +74,48 @@ class FineTuneLLM(pl.LightningModule):
         return optimizer
 
 
-def qc_requested_models_supported(model_names):
-    models_unsupported = list()
-    for model_name in model_names:
-        try:
-            model = FineTuneLLM(num_classes=1, model_name=model_name)
-        except RuntimeError:
-            models_unsupported.append(model_name)
-    if models_unsupported:
-        raise ValueError(f'The following models are not supported {models_unsupported}')
+# def qc_requested_models_supported(model_names):
+#     models_unsupported = list()
+#     for model_name in model_names:
+#         try:
+#             model = FineTuneLLM(num_classes=1, model_name=model_name)
+#         except RuntimeError:
+#             models_unsupported.append(model_name)
+#     if models_unsupported:
+#         raise ValueError(f'The following models are not supported {models_unsupported}')
+
+
+class FineTuneLLM_RobertaBaseGo(FineTuneLLM):
+    def __init__(self, num_classes, model_name='SamLowe/roberta-base-go_emotions', tokenizer="FacebookAI/roberta-base",
+                 device='cuda:0',
+                 learning_rate=1e-6):
+        # Same as BERT but with better pretraining tricks
+        if model_name == 'SamLowe/roberta-base-go_emotions':
+            model = RobertaModel.from_pretrained(model_name, num_labels=num_classes)
+        else:
+            raise NotImplementedError()
+
+        if tokenizer == "FacebookAI/roberta-base":
+            tokenizer = RobertaTokenizer.from_pretrained(tokenizer)
+        else:
+            raise NotImplementedError()
+
+        super(FineTuneLLM_RobertaBaseGo, self).__init__(device=device, learning_rate=learning_rate, model=model,
+                                                        tokenizer=tokenizer)
+
+
+class FineTuneLLM_Distilbert(FineTuneLLM):
+    def __init__(self, num_classes, model_name='distilbert-base-uncased', tokenizer='distilbert-base-uncased',
+                 device='cuda:0', learning_rate=1e-6):
+        # Lean version of BERT
+        if model_name == 'distilbert-base-uncased':
+            model = DistilBertForSequenceClassification.from_pretrained(model_name, num_labels=num_classes)
+        else:
+            raise NotImplementedError()
+
+        if tokenizer == 'distilbert-base-uncased':
+            tokenizer = DistilBertTokenizer.from_pretrained(tokenizer)
+        else:
+            raise NotImplementedError()
+        super(FineTuneLLM_Distilbert, self).__init__(device=device, learning_rate=learning_rate, model=model,
+                                                     tokenizer=tokenizer)
