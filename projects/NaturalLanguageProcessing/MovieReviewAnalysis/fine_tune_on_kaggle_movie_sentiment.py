@@ -5,13 +5,10 @@ import numpy as np
 
 import torch
 from torch.utils.data import DataLoader
-import lightning as pl
-from lightning.pytorch.callbacks import ModelCheckpoint, EarlyStopping
-from lightning.pytorch import loggers
 
 from transformers import AutoTokenizer
 
-from LLM_pytorch_lighting_wrapper import FineTuneLLM_Distilbert, FineTuneLLM_RobertaBaseGo
+from LLM_pytorch_lighting_wrapper import model_setup
 from panda_utils import set_display_rows_cols, do_train_val_test_split, read_dataframe
 
 
@@ -50,28 +47,6 @@ def main(model_name, freeze_pretrained_weights=True):
     # localhost:6006 in the browser
 
     torch.save(model.state_dict(), model_save_dir / model_save_file)
-
-
-def model_setup(save_dir, num_classes, model_name='distilbert-base-uncased', freeze_pretrained_params=True):
-    model_name_clean = model_name.split('\\')[-1]
-    checkpoint_callback = ModelCheckpoint(dirpath=save_dir,
-                                          filename=model_name_clean+"-{epoch:02d}-{val_loss:.2f}",
-                                          save_top_k=1,
-                                          monitor="val_acc")
-    early_stop_callback = EarlyStopping(monitor="val_acc", min_delta=0.0001, patience=5, verbose=False, mode="max")
-    tb_logger = loggers.TensorBoardLogger(save_dir=save_dir)
-    if model_name.startswith('distilbert-base-uncased'):
-        model = FineTuneLLM_Distilbert(num_classes=num_classes, model_name=model_name,
-                                       freeze_pretrained_params=freeze_pretrained_params)
-    elif model_name.startswith('SamLowe/roberta-base-go_emotions'):
-        model = FineTuneLLM_RobertaBaseGo(num_classes=num_classes, model_name=model_name,
-                                          freeze_pretrained_params=freeze_pretrained_params)
-    else:
-        ValueError(f"Model Name {model_name} unsupported.")
-
-    trainer = pl.Trainer(max_epochs=100, callbacks=[checkpoint_callback, early_stop_callback], logger=tb_logger,
-                         log_every_n_steps=50)
-    return model, trainer
 
 
 def data_loading(df_train, df_val, df_test, subsample=None):
