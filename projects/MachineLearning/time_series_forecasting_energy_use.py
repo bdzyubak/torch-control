@@ -74,7 +74,7 @@ def main():
         model.fit(X_train, y_train,
                 eval_set=[(X_train, y_train), (X_val, y_val)],
                 verbose=100)
-        print(f"Optimal tree depth: {model.best_iteration}")
+        print(f"Optimal number of trees: {model.best_iteration}")
 
         results = model.evals_result()
 
