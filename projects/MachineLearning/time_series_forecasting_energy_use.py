@@ -17,11 +17,17 @@ make_feature_plots = False
 make_validation_lots = True
 val_split_index = '01-01-2015'
 plt.style.use('fivethirtyeight')
+learning_rate = 0.001
+# max_depth_search = [5, 10, 15, 30, 50]
+max_depth_search = [10]
 
 
 def main():
     color_pal = sns.color_palette()
     input_file = Path(r'D:\data\ML\PowerConsumption\AEP_hourly.csv')
+    models_path = Path(r'D:\Models\ML') / Path(__file__).stem
+    models_path.mkdir(parents=True, exist_ok=True)
+
     df = pd.read_csv(input_file)
     df = df.set_index('Datetime')
     df.index = pd.to_datetime(df.index)
@@ -57,46 +63,71 @@ def main():
     X_val = val[features]
     y_val = val[target]
 
-    model = xgb.XGBRegressor(base_score=0.5, booster='gbtree',
-                           n_estimators=1000,
-                           early_stopping_rounds=50,
-                           objective='reg:squarederror',
-                           max_depth=3,
-                           learning_rate=0.01)
-    model.fit(X_train, y_train,
-            eval_set=[(X_train, y_train), (X_val, y_val)],
-            verbose=100)
+    for max_depth in max_depth_search:
+        df_exp = df.copy()
+        model = xgb.XGBRegressor(base_score=0.5, booster='gbtree',
+                               n_estimators=10000,
+                               early_stopping_rounds=50,
+                               objective='reg:squarederror',
+                               max_depth=max_depth,
+                               learning_rate=learning_rate)
+        model.fit(X_train, y_train,
+                eval_set=[(X_train, y_train), (X_val, y_val)],
+                verbose=100)
+        print(f"Optimal tree depth: {model.best_iteration}")
 
-    results = model.evals_result()
+        results = model.evals_result()
 
-    if make_feature_plots:
-        plot_trainval_results(results, best_iteration=model.best_iteration)
+        if make_feature_plots:
+            plot_trainval_results(results, best_iteration=model.best_iteration)
 
-    if make_feature_plots:
-        fi = pd.DataFrame(data=model.feature_importances_,
-                          index=model.feature_names_in_,
-                          columns=['importance'])
-        fi.sort_values('importance').plot(kind='barh', title='Feature Importance')
-        plt.show()
+        if make_feature_plots:
+            fi = pd.DataFrame(data=model.feature_importances_,
+                              index=model.feature_names_in_,
+                              columns=['importance'])
+            fi.sort_values('importance').plot(kind='barh', title='Feature Importance')
+            plt.show()
 
-    val['prediction'] = model.predict(X_val)
-    # df = df.merge(val[['prediction']], how='left', left_index=True, right_index=True)
-    trainval = df[features]
-    trainval['prediction'] = model.predict(trainval[features])
-    df = df.merge(trainval[['prediction']], how='left', left_index=True, right_index=True)
+        # df = df.merge(val[['prediction']], how='left', left_index=True, right_index=True)
+        trainval = df_exp[features]
+        trainval['prediction'] = model.predict(trainval[features])
+        df_exp = df_exp.merge(trainval[['prediction']], how='left', left_index=True, right_index=True)
 
-    if make_validation_lots:
-        # Predictions are equally bad on training and validation data - the model is underfitting
-        # Specifically, it is unable to predict extremes
-        plot_trainval_preds(df)
-        plot_trainval_preds_week(df)
+        # val['prediction'] = model.predict(X_val)
+        val = df_exp[df_exp.index >= val_split_index]
+        rmse = get_accuracy_metrics(target, val)
 
-    score = np.sqrt(mean_squared_error(val['MW'], val['prediction']))
-    print(f'RMSE Score on Val set: {score:0.2f}')
+        if make_validation_lots:
+            # Predictions are equally bad on training and validation data - the model is underfitting
+            # Specifically, it is unable to predict extremes
+            plot_trainval_preds(df_exp, save_file=models_path / f'xgboost_depth-{max_depth}_rmse-{rmse}_lr-{learning_rate}.png')
+            # plot_trainval_preds_week(df)
 
+
+def get_accuracy_metrics(target, val):
+    rmse = np.sqrt(mean_squared_error(val['MW'], val['prediction']))
+    rmse = round(rmse, 2)
+    print(f'RMSE Score on Val set: {rmse}')
     val['error'] = np.abs(val[target] - val['prediction'])
     val['date'] = val.index.date
     val.groupby(['date'])['error'].mean().sort_values(ascending=False).head(10)
+    return rmse
+
+
+def plot_trainval_preds(df, save_file=None, display=None):
+    ax = df[['MW']].plot(figsize=(15, 5))
+    df['prediction'].plot(ax=ax, style='.')
+    plt.legend(['Truth Data', 'Predictions'])
+    plt.axvline(val_split_index, color="gray", lw=3, label=f"Val split point")
+    ax.set_title('Raw Data and Prediction')
+
+    if save_file is not None:
+        plt.savefig(save_file)
+        # By default, don't display when saving - assume hyperparameter search
+        if display:
+            plt.show()
+    else:
+        plt.show()
 
 
 def plot_trainval_preds_week(df):
@@ -105,15 +136,6 @@ def plot_trainval_preds_week(df):
     df.loc[(df.index > '04-01-2018') & (df.index < '04-08-2018')]['prediction'] \
         .plot(style='.')
     plt.legend(['Truth Data', 'Prediction'])
-    plt.show()
-
-
-def plot_trainval_preds(df):
-    ax = df[['MW']].plot(figsize=(15, 5))
-    df['prediction'].plot(ax=ax, style='.')
-    plt.legend(['Truth Data', 'Predictions'])
-    plt.axvline(val_split_index, color="gray", lw=3, label=f"Val split point")
-    ax.set_title('Raw Data and Prediction')
     plt.show()
 
 
