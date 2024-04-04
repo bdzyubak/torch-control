@@ -39,10 +39,7 @@ performance of architectures/training methods. The /projects folder contains ent
 following topics: 
 1) Computer vision: 
    1) Use the cv environment created by run_setup_all.py
-   2) [Project Kanban](https://github.com/users/bdzyubak/projects/2/views/1) 
-   3) <span style="color:teal">Sample nnUnet training curve</span>\
-The loss is negative because dice loss is defined as (-dice) not (1-dice)
-![plot](/projects/ComputerVision/kaggle_blood_vessel_segmentation/sample_training_curve_for_README.png)
+   2) [Project Kanban](https://github.com/users/bdzyubak/projects/2/views/1)
 
 2) Natural Language Processing:  
    1) Use the nlp environment created by run_setup_all.py
@@ -69,12 +66,23 @@ torch-control.
    d) WIP: Combine with IMDB reviews dataset - compare training on one, validation on the other, then randomly split for cross-val.
 
 
-2) Blood Vessel Segmentation
+2) [CV] Blood Vessel Segmentation
    
-   a) Use the following script to [download and organize data](projects/ComputerVision/kaggle_blood_vessel_segmentation/organize_nnunet.py)
+   a) Use the following script to [download and organize data](/projects/ComputerVision/kaggle_blood_vessel_segmentation/organize_nnunet.py)
 
    b) Train [nnUnet](https://github.com/MIC-DKFZ/nnUNet) by calling "nnUNet/run_training.py 501 2d" (Dataset ID, architecture 
       template)
+
+
+3) [ML] time series segmentation: 
+
+   a) Use the following script for hyperparameter optimization and model fitting ![plot](/projects/MachineLearning/energy_use_time_series_forecasting/xgboost_depth-10_rmse-1658.3_lr-0.001.png)
+
+   b) WIP: Add MLOps for model/hyperparameter/data tracking
+   
+   c) WIP: Further improve model hyperparameters and engineered features.
+
+   d) WIP: Add cross validation with datasets from the other companies available. 
 
 
 ## Operating Systems Notes 
