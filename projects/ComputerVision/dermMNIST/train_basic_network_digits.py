@@ -33,6 +33,8 @@ def main():
     num_epochs = 40
     train_val(train_loader=train_loader, eval_loader=eval_loader, model=model, num_epochs=num_epochs, num_classes=num_classes)
 
+    # Result: achieves >0.9 accuracy unlike DERMAMNIST - so, the network implementation and trainer have no major bugs
+
 
 if __name__ == '__main__':
     main()
