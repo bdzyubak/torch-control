@@ -15,9 +15,12 @@ The purpose of this project is to explore a wide variety of neural networks and 
 methods. To that end, I am forking repositories with state-of-the-art architectures, improving 
 interfaces, and adding ways to mix-and-match architectures and training/inference methods. My main background is in 
 medical image analysis. Consequently, to expand horizons, I will be applying image analysis models to other computer
-vision tasks. I also have a great interest in exploring Natural Language Models, the cutting edge of AI. The repository 
-is fairly recent, started on 02/26/2024, and is a work in progress. This repo is in Pytorch. For an older but more 
-developed repo see: [tensorflow-sandbox](https://github.com/bdzyubak/tensorflow-sandbox)
+vision tasks. I also have a great interest in exploring Natural Language Models, the cutting edge of AI. 
+
+The repository fairly recent, started on in March 2024. Currently, it can serve as code samples, with more thorough 
+experimnetation, model complexity, and MLOps to be added over the subsequent months. 
+
+This repo is in Pytorch. For Tensorflow, see: [tensorflow-sandbox](https://github.com/bdzyubak/tensorflow-sandbox)
 
 ## Installation
 Install the following prerequisites:
