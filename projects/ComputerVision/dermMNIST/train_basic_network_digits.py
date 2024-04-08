@@ -2,7 +2,7 @@ import torch
 from torch.utils.data import DataLoader
 from torchvision import transforms, datasets
 
-from networks_from_scratch import ConvNet, Net, train_val, show_examples, \
+from networks_from_scratch import BasicNet, Net, train_val, show_examples, \
     count_classes_check_imbalance
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -27,7 +27,7 @@ def main():
     train_loader = DataLoader(train_dataset, batch_size=100, shuffle=True)
     eval_loader = DataLoader(val_dataset, batch_size=100, shuffle=True)
     # Initialize model
-    model = ConvNet(im_width=im_width, im_height=im_height, num_classes=num_classes, input_channels=input_channels)
+    model = BasicNet(im_width=im_width, im_height=im_height, num_classes=num_classes, input_channels=input_channels)
     model = model.to(device)
 
     num_epochs = 40
