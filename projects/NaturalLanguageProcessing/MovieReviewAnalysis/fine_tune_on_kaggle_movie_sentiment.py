@@ -8,7 +8,8 @@ from torch.utils.data import DataLoader
 
 from transformers import AutoTokenizer
 
-from LLM_pytorch_lighting_wrapper import model_setup
+from utils.torch_utils import get_model_size
+from services.LLM_pytorch_lighting_wrapper import FineTuneLLM_Distilbert, FineTuneLLM_Bert, FineTuneLLM_RobertaBaseGo
 from panda_utils import set_display_rows_cols, do_train_val_test_split, read_dataframe
 
 
@@ -29,6 +30,15 @@ def main(model_name, freeze_pretrained_weights=True):
     file_path = r"D:\data\SentimentAnalysisOnMovieReviews\train.tsv"
     df = read_dataframe(file_path)
 
+    model_save_dir = Path(r"D:\Models\LLM") / Path(__file__).stem
+    model_save_dir.mkdir(exist_ok=True, parents=True)
+    # Prefer to get number of classes procedurally, but this requires loading data. For now, hard specify to debug new
+    # models. The clean solution is to load just one sample datapoint to get number of labels.
+    model, trainer = model_setup(model_save_dir,
+                                 num_classes=5,
+                                 # num_classes=train_dataloader.dataset.__getitem__(0)['labels'].shape[0],
+                                 model_name=model_name)
+
     # The actual test file has no sentiments. We're not competing right now, so just split off a subset of train to
     # test generalizability
     # file_path = r"D:\data\SentimentAnalysisOnMovieReviews\test.tsv"
@@ -37,12 +47,8 @@ def main(model_name, freeze_pretrained_weights=True):
 
     train_dataloader, val_dataloader, test_dataloader = data_loading(df_train=df_train, df_val=df_val, df_test=df_test)
 
-    model_save_dir = Path(r"D:\Models\LLM") / Path(__file__).stem
-    model_save_dir.mkdir(exist_ok=True, parents=True)
-    model, trainer = model_setup(model_save_dir,
-                                 num_classes=train_dataloader.dataset.__getitem__(0)['labels'].shape[0],
-                                 model_name=model_name)
     trainer.fit(model, train_dataloaders=train_dataloader, val_dataloaders=val_dataloader)
+
     # To see logs, run in command line: tensorboard --logdir=model_save_dir/[version_run_number] and go to the
     # localhost:6006 in the browser
 
