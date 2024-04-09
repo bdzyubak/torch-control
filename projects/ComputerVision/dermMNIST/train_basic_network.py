@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader
 from torchvision import transforms
 from torchvision.models import resnet50, ResNet50_Weights
 
-from networks_from_scratch import BasicDeeperNet, BasicNet, Trainer, show_examples, \
+from networks_from_scratch import BasicMaxPool, BasicNet, Trainer, show_examples, \
     count_classes_check_imbalance
 from torch_utils import get_model_size_mb
 
@@ -15,15 +15,15 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 IM_WIDTH = 28
 IM_HEIGHT = 28
 make_plots = False
-model_type = 'basic'
+model_type = 'basic_maxpool'
 backbone_channels = 256
 pretrained = True
+
+
 # Best setting
 # model_type = 'resnet50'
 # pretrained = True
 
-
-# Basic CCN/FCN mix achieves 0.69 accuracy
 # resnet50 accuracy published in nature is only 73.1%! https://www.nature.com/articles/s41597-022-01721-8/tables/4
 
 
@@ -51,12 +51,12 @@ def main():
     # model = ConvNet(im_width=IM_WIDTH, im_height=IM_HEIGHT, num_classes=7)
     if model_type == 'basic':
         model = BasicNet(im_width=im_width, im_height=im_height, num_classes=num_classes, input_channels=input_channels,
-                         cnn_start_channels=256, preclassifier_channels=1024)
-        # Achieves 0.69 accuracy but does not increase further in either training or validation sets.
-    elif model_type == 'basic_deep':
-        model = BasicDeeperNet(im_width=im_width, im_height=im_height, num_classes=num_classes, input_channels=input_channels)
-        # The Kaggle notebook https://www.kaggle.com/code/benyaminghahremani/dermatology-mnist-classification-cnn claims 0.72 validation accuracy which is close to the 0.73 that is published in nature, but the
-        # experiment does not reproduce this even as training accuracy. So, the network still underfits.
+                         cnn_start_channels=256, dense_channels=1024, do_maxpool=False)
+        # Very basic network consisting of CNN + FCN layers
+    elif model_type == 'basic_maxpool':
+        model = BasicMaxPool(im_width=im_width, im_height=im_height, num_classes=num_classes,
+                             input_channels=input_channels, dropout=0.1)
+        # VGG style with maxpool
     elif model_type == 'resnet50':
         model = resnet50(weights=ResNet50_Weights.DEFAULT if pretrained else None)
         model.fc = Linear(in_features=2048, out_features=7)
