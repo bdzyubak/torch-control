@@ -21,26 +21,13 @@ class BasicNet(nn.Module):
         self.im_width = im_width
         self.im_height = im_height
 
-        self.backbone = nn.Sequential(
-            nn.Conv2d(in_channels=input_channels, out_channels=self.backbone_channels, kernel_size=3, padding=1),
-            nn.ReLU(),
-            nn.Conv2d(in_channels=self.backbone_channels, out_channels=self.backbone_channels, kernel_size=3, padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2, stride=2, padding=0),
-        )
-
-        backbone_channels_prev = self.backbone_channels
-        self.backbone_channels = self.backbone_channels * 2
-        self.im_width = self.im_width // 2
-        self.im_height = self.im_height // 2
         self.backbone1 = nn.Sequential(
-            nn.Conv2d(in_channels=backbone_channels_prev, out_channels=self.backbone_channels, kernel_size=3,
-                      padding=1),
+            nn.Conv2d(in_channels=input_channels, out_channels=self.backbone_channels, kernel_size=3, padding=1),
             nn.ReLU(),
             nn.Conv2d(in_channels=self.backbone_channels, out_channels=self.backbone_channels, kernel_size=3,
                       padding=1),
             nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2, stride=2, padding=0)
+            nn.MaxPool2d(kernel_size=2, stride=2, padding=0),
         )
 
         backbone_channels_prev = self.backbone_channels
@@ -90,7 +77,6 @@ class BasicNet(nn.Module):
         self.fc4 = nn.Linear(1024, num_classes)
 
     def forward(self, x):
-        x = self.backbone(x)
         x = self.backbone1(x)
         x = self.backbone2(x)
         x = self.backbone3(x)
