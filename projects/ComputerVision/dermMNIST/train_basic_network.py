@@ -19,11 +19,7 @@ model_type = 'basic_maxpool'
 backbone_channels = 256
 pretrained = True
 
-
-# Best setting
-# model_type = 'resnet50'
-# pretrained = True
-
+# This is a script to experiment with basic models on the dermaMNIST dataset. 
 # resnet50 accuracy published in nature is only 73.1%! https://www.nature.com/articles/s41597-022-01721-8/tables/4
 
 
