@@ -17,87 +17,55 @@ class BasicNet(nn.Module):
                  preclassifier_channels=10240):
         super().__init__()
 
-        self.backbone_channels = cnn_start_channels
+        self.backbone_out_channels = 256
         self.im_width = im_width
         self.im_height = im_height
 
-        self.backbone1 = nn.Sequential(
-            nn.Conv2d(in_channels=input_channels, out_channels=self.backbone_channels, kernel_size=3, padding=1),
-            nn.ReLU(),
-            nn.Conv2d(in_channels=self.backbone_channels, out_channels=self.backbone_channels, kernel_size=3,
-                      padding=1),
-            nn.ReLU(),
+        self.backbone = nn.Sequential(
+            nn.Conv2d(in_channels=3, out_channels=self.backbone_out_channels, kernel_size=3, padding=1),
             nn.MaxPool2d(kernel_size=2, stride=2, padding=0),
+            nn.ReLU()
         )
 
-        backbone_channels_prev = self.backbone_channels
-        self.backbone_channels = self.backbone_channels * 2
-        self.im_width = self.im_width // 2
-        self.im_height = self.im_height // 2
-        self.backbone2 = nn.Sequential(
-            nn.Conv2d(in_channels=backbone_channels_prev, out_channels=self.backbone_channels, kernel_size=3,
-                      padding=1),
-            nn.ReLU(),
-            nn.Conv2d(in_channels=self.backbone_channels, out_channels=self.backbone_channels, kernel_size=3,
-                      padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2, stride=2, padding=0)
-        )
-
-        backbone_channels_prev = self.backbone_channels
-        self.backbone_channels = self.backbone_channels * 2
-        self.im_width = self.im_width // 2
-        self.im_height = self.im_height // 2
-        self.backbone3 = nn.Sequential(
-            nn.Conv2d(in_channels=backbone_channels_prev, out_channels=self.backbone_channels, kernel_size=3,
-                      padding=1),
-            nn.ReLU(),
-            nn.Conv2d(in_channels=self.backbone_channels, out_channels=self.backbone_channels, kernel_size=3,
-                      padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2, stride=2, padding=0)
-        )
-
-        backbone_channels_prev = self.backbone_channels
-        self.backbone_channels = self.backbone_channels * 2
-        self.im_width = self.im_width // 2
-        self.im_height = self.im_height // 2
-        self.backbone4 = nn.Sequential(
-            nn.Conv2d(in_channels=backbone_channels_prev, out_channels=self.backbone_channels, kernel_size=3,
-                      padding=1),
-            nn.ReLU(),
-            nn.Conv2d(in_channels=self.backbone_channels, out_channels=self.backbone_channels, kernel_size=3,
+        self.backbone1 = nn.Sequential(
+            nn.Conv2d(in_channels=self.backbone_out_channels, out_channels=self.backbone_out_channels, kernel_size=3,
                       padding=1),
             nn.ReLU()
         )
 
-        self.fc1 = nn.Linear(self.backbone_channels * self.im_width * self.im_height, 1024)
-        self.fc2 = nn.Linear(1024, 1024)
-        self.fc3 = nn.Linear(1024, 1024)
-        self.fc4 = nn.Linear(1024, num_classes)
+        self.backbone2 = nn.Sequential(
+            nn.Conv2d(in_channels=self.backbone_out_channels, out_channels=self.backbone_out_channels, kernel_size=3,
+                      padding=1),
+            nn.ReLU()
+        )
+
+        self.backbone3 = nn.Sequential(
+            nn.Conv2d(in_channels=self.backbone_out_channels, out_channels=self.backbone_out_channels, kernel_size=3,
+                      padding=1),
+            nn.ReLU()
+        )
+
+        self.backbone4 = nn.Sequential(
+            nn.Conv2d(in_channels=self.backbone_out_channels, out_channels=self.backbone_out_channels, kernel_size=3,
+                      padding=1),
+            nn.ReLU()
+        )
+
+        self.classifier = nn.Sequential(
+            nn.Linear(self.backbone_out_channels * (self.im_width // 2) * (self.im_height // 2), 512),
+            nn.ReLU(),
+            nn.Linear(512, num_classes),
+        )
 
     def forward(self, x):
+        x = self.backbone(x)
         x = self.backbone1(x)
         x = self.backbone2(x)
         x = self.backbone3(x)
         x = self.backbone4(x)
-        # Flatten
-        x = x.view(-1, self.backbone_channels * self.im_width * self.im_height)
-
-        x = self.fc1(x)
-        # if self.dropout is not None:
-        #     x = nn.Dropout2d(x)
-        x = self.fc2(x)
-        # if self.dropout is not None:
-        #     x = nn.Dropout2d(x)
-        x = self.fc3(x)
-        # if self.dropout is not None:
-        #     x = nn.Dropout2d(x)
-        x = self.fc4(x)
-        # if self.dropout is not None:
-        #     x = nn.Dropout2d(x)
-
-        return F.log_softmax(x)
+        x = x.view(-1, self.backbone_out_channels * (self.im_width // 2) * (self.im_height // 2))
+        x = self.classifier(x)
+        return x
 
 
 class BasicDeeperNet(nn.Module):

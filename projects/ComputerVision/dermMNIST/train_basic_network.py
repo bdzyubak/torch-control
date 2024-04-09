@@ -73,7 +73,5 @@ def main():
     trainer.train_val()
 
 
-
-
 if __name__ == '__main__':
     main()
