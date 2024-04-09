@@ -1,6 +1,8 @@
 # For production, use pinned versions. Here, I want to explore the most up to date libraries
 --extra-index-url https://download.pytorch.org/whl/cu121
 torch
+torchvision
+torchmetrics
 lightning[extra]
 pytest
 tensorboard
@@ -8,5 +10,6 @@ tbparse
 numpy
 matplotlib
 seaborn
-opendatasets
 pandas
+opendatasets
+medmnist
