@@ -13,53 +13,48 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 class BasicNet(nn.Module):
     """A basic convolutional neural network."""
 
-    def __init__(self, im_width, im_height, num_classes: int = 7, input_channels=3, cnn_start_channels=16,
+    def __init__(self, im_width, im_height, num_classes: int = 7, input_channels=3, cnn_start_channels=256,
                  preclassifier_channels=10240):
         super().__init__()
 
-        self.backbone_channels = cnn_start_channels
+        self.backbone_out_channels = 256
         self.im_width = im_width
         self.im_height = im_height
 
         self.backbone = nn.Sequential(
-            nn.Conv2d(in_channels=input_channels, out_channels=self.backbone_channels, kernel_size=3, padding=1),
+            nn.Conv2d(in_channels=3, out_channels=self.backbone_out_channels, kernel_size=3, padding=1),
             nn.MaxPool2d(kernel_size=2, stride=2, padding=0),
             nn.ReLU()
         )
 
-        self.backbone_channels = self.backbone_channels * 2
-        self.im_width = self.im_width // 2
-        self.im_height = self.im_height // 2
         self.backbone1 = nn.Sequential(
-            nn.Conv2d(in_channels=cnn_start_channels, out_channels=self.backbone_channels, kernel_size=3,
+            nn.Conv2d(in_channels=self.backbone_out_channels, out_channels=self.backbone_out_channels, kernel_size=3,
                       padding=1),
             nn.ReLU()
         )
 
         self.backbone2 = nn.Sequential(
-            nn.Conv2d(in_channels=self.backbone_channels, out_channels=self.backbone_channels, kernel_size=3,
+            nn.Conv2d(in_channels=self.backbone_out_channels, out_channels=self.backbone_out_channels, kernel_size=3,
                       padding=1),
             nn.ReLU()
         )
 
         self.backbone3 = nn.Sequential(
-            nn.Conv2d(in_channels=self.backbone_channels, out_channels=self.backbone_channels, kernel_size=3,
+            nn.Conv2d(in_channels=self.backbone_out_channels, out_channels=self.backbone_out_channels, kernel_size=3,
                       padding=1),
             nn.ReLU()
         )
 
         self.backbone4 = nn.Sequential(
-            nn.Conv2d(in_channels=self.backbone_channels, out_channels=self.backbone_channels, kernel_size=3,
+            nn.Conv2d(in_channels=self.backbone_out_channels, out_channels=self.backbone_out_channels, kernel_size=3,
                       padding=1),
             nn.ReLU()
         )
 
         self.classifier = nn.Sequential(
-            nn.Linear(self.backbone_channels * self.im_width * self.im_height, preclassifier_channels),
+            nn.Linear(self.backbone_out_channels * (self.im_width // 2) * (self.im_height // 2), 512),
             nn.ReLU(),
-            nn.Dropout(),
-            nn.Linear(preclassifier_channels, num_classes),
-            nn.Softmax()
+            nn.Linear(512, num_classes),
         )
 
     def forward(self, x):
@@ -68,7 +63,7 @@ class BasicNet(nn.Module):
         x = self.backbone2(x)
         x = self.backbone3(x)
         x = self.backbone4(x)
-        x = x.view(-1, self.backbone_channels * self.im_width * self.im_height)
+        x = x.view(-1, self.backbone_out_channels * (self.im_width // 2) * (self.im_height // 2))
         x = self.classifier(x)
         return x
 
@@ -134,7 +129,6 @@ class BasicDeeperNet(nn.Module):
         self.fc2 = nn.Linear(1024, 1024)
         self.fc3 = nn.Linear(1024, 1024)
         self.fc4 = nn.Linear(1024, num_classes)
-        self.softmax = nn.Softmax()
 
     def forward(self, x):
         x = self.backbone1(x)
