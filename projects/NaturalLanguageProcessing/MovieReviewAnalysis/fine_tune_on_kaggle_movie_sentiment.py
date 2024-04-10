@@ -9,8 +9,6 @@ from torch.utils.data import DataLoader
 from utils.LLM_pytorch_lighting_wrapper import model_setup, tokenizer_setup
 from panda_utils import set_display_rows_cols, do_train_val_test_split, read_dataframe
 
-
-
 set_display_rows_cols()
 np.random.seed(123456)
 
@@ -61,7 +59,7 @@ def data_loading(df_train, df_val, df_test, tokenizer_name, subsample=None):
     val_dataset = KaggleSentimentDataset(df_val, tokenizer_name=tokenizer_name, subsample=subsample)
     test_dataset = KaggleSentimentDataset(df_test, tokenizer_name=tokenizer_name, subsample=subsample)
     print(f'The train/val/test split is: {len(train_dataset)}, {len(val_dataset)}, {len(test_dataset)}')
-    # num_workers=3 is recommended by lightining. Depends on available resources and cpu.
+    # num_workers=3 is recommended by lightning. Depends on available resources and cpu.
     train_dataloader = DataLoader(train_dataset, batch_size=10, shuffle=True, num_workers=3, persistent_workers=True)
     val_dataloader = DataLoader(val_dataset, batch_size=10, num_workers=3, persistent_workers=True)
     test_dataloader = DataLoader(test_dataset, batch_size=10, num_workers=3, persistent_workers=True)
