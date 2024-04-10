@@ -6,12 +6,12 @@ import seaborn as sns
 
 import xgboost as xgb  # Add to requirements.txt
 from sklearn.metrics import mean_squared_error
+import mlflow
 
-from utils.plotting import set_plotting_defaults
+from utils.plotting import set_plotting_defaults  # Keep this line. Sets better plotting on import
 
-
-
-sns.set()
+mlflow.autolog()
+mlflow.set_experiment('Energy Use Forecasting')
 make_exploration_plots = False
 make_feature_plots = False
 make_validation_lots = True
@@ -33,7 +33,7 @@ def main():
     df.index = pd.to_datetime(df.index)
 
     data_source = input_file.stem.split('_')[0]
-    df = df.rename(columns={data_source+'_MW': 'MW'})
+    df = df.rename(columns={data_source + '_MW': 'MW'})
 
     if make_exploration_plots:
         df.plot(style='.',
@@ -63,45 +63,50 @@ def main():
     X_val = val[features]
     y_val = val[target]
 
-    for max_depth in max_depth_search:
-        df_exp = df.copy()
-        model = xgb.XGBRegressor(base_score=0.5, booster='gbtree',
-                               n_estimators=10000,
-                               early_stopping_rounds=50,
-                               objective='reg:squarederror',
-                               max_depth=max_depth,
-                               learning_rate=learning_rate)
-        model.fit(X_train, y_train,
-                eval_set=[(X_train, y_train), (X_val, y_val)],
-                verbose=100)
-        print(f"Optimal number of trees: {model.best_iteration}")
+    with mlflow.start_run() as run:
+        for max_depth in max_depth_search:
 
-        results = model.evals_result()
+            df_exp = df.copy()
+            model = xgb.XGBRegressor(base_score=0.5, booster='gbtree',
+                                     n_estimators=10000,
+                                     early_stopping_rounds=50,
+                                     objective='reg:squarederror',
+                                     max_depth=max_depth,
+                                     learning_rate=learning_rate)
+            model.fit(X_train, y_train,
+                      eval_set=[(X_train, y_train), (X_val, y_val)],
+                      verbose=100)
+            print(f"Optimal number of trees: {model.best_iteration}")
 
-        if make_feature_plots:
-            plot_trainval_results(results, best_iteration=model.best_iteration)
+            results = model.evals_result()
 
-        if make_feature_plots:
-            fi = pd.DataFrame(data=model.feature_importances_,
-                              index=model.feature_names_in_,
-                              columns=['importance'])
-            fi.sort_values('importance').plot(kind='barh', title='Feature Importance')
-            plt.show()
+            if make_feature_plots:
+                plot_trainval_results(results, best_iteration=model.best_iteration)
 
-        # df = df.merge(val[['prediction']], how='left', left_index=True, right_index=True)
-        trainval = df_exp[features]
-        trainval['prediction'] = model.predict(trainval[features])
-        df_exp = df_exp.merge(trainval[['prediction']], how='left', left_index=True, right_index=True)
+            if make_feature_plots:
+                fi = pd.DataFrame(data=model.feature_importances_,
+                                  index=model.feature_names_in_,
+                                  columns=['importance'])
+                ax = fi.sort_values('importance').plot(kind='barh', title='Feature Importance')
+                mlflow.log_figure(ax.get_figure(), 'feature_importance.png')
+                plt.show()
 
-        # val['prediction'] = model.predict(X_val)
-        val = df_exp[df_exp.index >= val_split_index]
-        rmse = get_accuracy_metrics(target, val)
+            # df = df.merge(val[['prediction']], how='left', left_index=True, right_index=True)
+            trainval = df_exp[features]
+            trainval['prediction'] = model.predict(trainval[features])
+            df_exp = df_exp.merge(trainval[['prediction']], how='left', left_index=True, right_index=True)
 
-        if make_validation_lots:
-            # Predictions are equally bad on training and validation data - the model is underfitting
-            # Specifically, it is unable to predict extremes
-            plot_trainval_preds(df_exp, save_file=models_path / f'xgboost_depth-{max_depth}_rmse-{rmse}_lr-{learning_rate}.png')
-            # plot_trainval_preds_week(df)
+            # val['prediction'] = model.predict(X_val)
+            val = df_exp[df_exp.index >= val_split_index]
+            rmse = get_accuracy_metrics(target, val)
+
+            if make_validation_lots:
+                # Predictions are equally bad on training and validation data - the model is underfitting
+                # Specifically, it is unable to predict extremes
+                fig_trainval_preds = plot_trainval_preds(df_exp,
+                                                         save_file=models_path / f'xgboost_depth-{max_depth}_rmse-{rmse}_lr-{learning_rate}.png')
+                mlflow.log_figure(fig_trainval_preds, 'trainval_predictions.png')
+                # plot_trainval_preds_week(df)
 
 
 def get_accuracy_metrics(target, val):
@@ -128,19 +133,22 @@ def plot_trainval_preds(df, save_file=None, display=None):
             plt.show()
     else:
         plt.show()
+    return ax.get_figure()
 
 
 def plot_trainval_preds_week(df):
+    fig = plt.figure()
     ax = df.loc[(df.index > '04-01-2018') & (df.index < '04-08-2018')]['MW'] \
         .plot(figsize=(15, 5), title='Week Of Data')
     df.loc[(df.index > '04-01-2018') & (df.index < '04-08-2018')]['prediction'] \
         .plot(style='.')
     plt.legend(['Truth Data', 'Prediction'])
     plt.show()
+    return fig
 
 
 def plot_trainval_results(results, best_iteration=None):
-    plt.figure(figsize=(10, 7))
+    fig = plt.figure(figsize=(10, 7))
     plt.plot(results["validation_0"]["rmse"], label="Training loss")
     plt.plot(results["validation_1"]["rmse"], label="Validation loss")
     if best_iteration is not None:
@@ -148,6 +156,7 @@ def plot_trainval_results(results, best_iteration=None):
     plt.xlabel("Number of trees")
     plt.ylabel("Loss")
     plt.legend()
+    return fig
 
 
 def explore_trainval_relationships(df, train, val):
