@@ -9,31 +9,33 @@ from torch.utils.data import DataLoader
 from utils.LLM_pytorch_lighting_wrapper import model_setup, tokenizer_setup
 from panda_utils import set_display_rows_cols, do_train_val_test_split, read_dataframe
 
+import mlflow
+
 set_display_rows_cols()
 np.random.seed(123456)
+mlflow.pytorch.autolog()
+mlflow.set_experiment('Movie Review Sentiment Analysis')
 
 
 def main(model_name, freeze_pretrained_weights=True):
-    if freeze_pretrained_weights:
-        model_save_file = model_name + '_frozen_last_checkpoint.pth'
-    else:
-        model_save_file = model_name + '_last_checkpoint.pth'
-
     train_dataloader, val_dataloader = _set_up_dataloading(tokenizer_name=model_name)
 
     model_save_dir = Path(r"D:\Models\LLM") / Path(__file__).stem
     model_save_dir.mkdir(exist_ok=True, parents=True)
-    # Prefer to get number of classes procedurally, but this requires loading data. For now, hard specify to debug new
-    # models. The clean solution is to load just one sample datapoint to get number of labels.
-    model, trainer = model_setup(model_save_dir,
-                                 num_classes=train_dataloader.dataset.__getitem__(0)['labels'].shape[0],
-                                 model_name=model_name)
-    trainer.fit(model, train_dataloaders=train_dataloader, val_dataloaders=val_dataloader)
 
-    # To see logs, run in command line: tensorboard --logdir=model_save_dir/[version_run_number] and go to the
-    # localhost:6006 in the browser
+    with mlflow.start_run() as run:
+        model, trainer = model_setup(model_save_dir,
+                                     num_classes=train_dataloader.dataset.__getitem__(0)['labels'].shape[0],
+                                     model_name=model_name, do_layer_freeze=freeze_pretrained_weights)
+        mlflow.log_param("Model name", model_name)
 
-    torch.save(model.state_dict(), model_save_dir / model_save_file)
+        trainer.fit(model, train_dataloaders=train_dataloader, val_dataloaders=val_dataloader)
+
+        # To see logs, run in command line: tensorboard --logdir=model_save_dir/[version_run_number] and go to the
+        # localhost:6006 in the browser
+
+        mlflow.pytorch.log_model(model, "model")
+        # torch.save(model.state_dict(), model_save_dir / model_save_file)
 
 
 def _set_up_dataloading(tokenizer_name):

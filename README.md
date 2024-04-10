@@ -30,6 +30,12 @@ Install the following prerequisites:
 projects (see [Repository Organization](#repository-organization)) 
 4) In Pycharm settings, define all submodules torch-control/utils, torch-control/nnUnet as Source. For running in the 
 command line, these conda paths are developed by run_setup_all.py, but Pycharm overrides the system settings 
+5) MLFlow: 
+   1) Install git if not installed already and add it to PATH (GitKraken does not appear to add a callable git executable)
+   2) Configure the mlflow runs directory by changing the environment variable e.g. MLFLOW_TRACKING_URI=D:\Models\mlruns 
+   via the control panel on Windows or .bashrc update on Linux. 
+   3) To display logs, navigate to the mlruns folder in the terminal and run: mlflow ui --port 8080
+   4) Then access via browser: localhost:8080
 
 [//]: # (4&#41; Docker is currently unused, but for futrue reference)
 [//]: # (   a&#41; To install in custom location, use: start /w “” “Docker Desktop Installer.exe” install --installation-dir=G:\Docker)
