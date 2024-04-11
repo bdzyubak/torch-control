@@ -17,25 +17,24 @@ mlflow.pytorch.autolog()
 mlflow.set_experiment('Movie Review Sentiment Analysis')
 
 
-def main(model_name, freeze_pretrained_weights=True):
-    train_dataloader, val_dataloader = _set_up_dataloading(tokenizer_name=model_name)
-
+def main(model_name, train_all=False, extra_class_layers=None):
     model_save_dir = Path(r"D:\Models\LLM") / Path(__file__).stem
     model_save_dir.mkdir(exist_ok=True, parents=True)
 
     with mlflow.start_run() as run:
+        print(f"Starting training run: {run.info.run_id}")
+        train_dataloader, val_dataloader = _set_up_dataloading(tokenizer_name=model_name)
+
         model, trainer = model_setup(model_save_dir,
                                      num_classes=train_dataloader.dataset.__getitem__(0)['labels'].shape[0],
-                                     model_name=model_name, do_layer_freeze=freeze_pretrained_weights)
-        mlflow.log_param("Model name", model_name)
+                                     model_name=model_name, do_layer_freeze=not train_all,
+                                     extra_class_layers=extra_class_layers)
+        mlflow.log_param("Model Name", model_name)
 
         trainer.fit(model, train_dataloaders=train_dataloader, val_dataloaders=val_dataloader)
 
-        # To see logs, run in command line: tensorboard --logdir=model_save_dir/[version_run_number] and go to the
-        # localhost:6006 in the browser
-
-        mlflow.pytorch.log_model(model, "model")
-        # torch.save(model.state_dict(), model_save_dir / model_save_file)
+        # To see logs, go to the mlruns folder and type: mlflow ui --port 8080 and go to
+        # localhost:808 in the browser
 
 
 def _set_up_dataloading(tokenizer_name):
@@ -55,16 +54,17 @@ def _set_up_dataloading(tokenizer_name):
     return train_dataloader, val_dataloader
 
 
-def data_loading(df_train, df_val, df_test, tokenizer_name, subsample=None):
+def data_loading(df_train, df_val, df_test, tokenizer_name, subsample=None, batch_size=64):
     # subsample = 1000 for debug
     train_dataset = KaggleSentimentDataset(df_train, tokenizer_name=tokenizer_name, subsample=subsample)
     val_dataset = KaggleSentimentDataset(df_val, tokenizer_name=tokenizer_name, subsample=subsample)
     test_dataset = KaggleSentimentDataset(df_test, tokenizer_name=tokenizer_name, subsample=subsample)
     print(f'The train/val/test split is: {len(train_dataset)}, {len(val_dataset)}, {len(test_dataset)}')
     # num_workers=3 is recommended by lightning. Depends on available resources and cpu.
-    train_dataloader = DataLoader(train_dataset, batch_size=10, shuffle=True, num_workers=3, persistent_workers=True)
-    val_dataloader = DataLoader(val_dataset, batch_size=10, num_workers=3, persistent_workers=True)
-    test_dataloader = DataLoader(test_dataset, batch_size=10, num_workers=3, persistent_workers=True)
+    train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=3, persistent_workers=True)
+    val_dataloader = DataLoader(val_dataset, batch_size=batch_size, num_workers=3, persistent_workers=True)
+    test_dataloader = DataLoader(test_dataset, batch_size=batch_size, num_workers=3, persistent_workers=True)
+    mlflow.log_param('batch_size', batch_size)
     return train_dataloader, val_dataloader, test_dataloader
 
 
@@ -104,7 +104,14 @@ if __name__ == "__main__":
     argument_parser = argparse.ArgumentParser()
     argument_parser.add_argument('--model_name', default='distilbert-base-uncased')
     # argument_parser.add_argument('--device', default='cuda:0')
-    argument_parser.add_argument('-freeze', default=True)
+    argument_parser.add_argument('--train_all', action='store_true')
+    argument_parser.add_argument('--extra_class_layers', nargs='+',
+                                 default=None, type=int,
+                                 help="Number of extra layers to add to default classifier head, "
+                                      "or list of specified numbers of connections")
     args = argument_parser.parse_args()
 
-    main(model_name=args.model_name, freeze_pretrained_weights=args.freeze)
+    if args.extra_class_layers and len(args.extra_class_layers) == 1:
+        args.extra_class_layers = args.extra_class_layers[0]
+
+    main(model_name=args.model_name, train_all=args.train_all, extra_class_layers=args.extra_class_layers)
