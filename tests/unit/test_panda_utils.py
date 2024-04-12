@@ -1,7 +1,9 @@
 import pytest
 import pandas as pd
+import numpy as np
 
-from utils.panda_utils import pick_columns_trim_name, is_close
+from utils.panda_utils import (pick_columns_trim_name, is_close, time_series_train_val_test_split,
+                               split_features_and_labels)
 
 
 def test_filename_to_title():
@@ -29,6 +31,27 @@ def test_is_close():
 
     result = is_close(1989, 1991, abs_tol=1)
     assert result is False, "Failed to flag difference with specified tolerance"
+
+
+def test_time_series_train_val_test_split():
+    df = pd.DataFrame(index=np.arange(10), columns=['Data1', 'Data2'])
+    train, val, test = time_series_train_val_test_split(df, val_ratio=0.3, test_ratio=0.3)
+    assert list(train.index()) == [0, 1, 2, 3, 4, 5] and list(val.index()) == [6, 7] and list(train.index()) == [8, 9]
+    # TODO: add a couple of other scenarios to test generalizability
+
+
+# def split_features_and_labels():
+#     result = is_close(1, 1.0001)
+#     assert result is True, "Failed to confirm similarity default tolerance"
+#
+#     result = is_close(1, 1.001)
+#     assert result is False, "Failed to flag difference with default tolerance"
+#
+#     result = is_close(1989, 1990, abs_tol=1)
+#     assert result is True, "Failed to confirm similarity specified tolerance"
+#
+#     result = is_close(1989, 1991, abs_tol=1)
+#     assert result is False, "Failed to flag difference with specified tolerance"
 
 
 if __name__ == '__main__':
