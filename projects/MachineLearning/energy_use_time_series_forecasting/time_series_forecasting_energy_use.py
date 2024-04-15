@@ -4,14 +4,14 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-import xgboost as xgb  # Add to requirements.txt
-from sklearn.metrics import mean_squared_error
+import xgboost as xgb
 import mlflow
-from panda_utils import time_series_train_val_test_split, split_features_and_labels_train_val
 
-from numerical_utils import round_numbers
+from os_utils import get_memory_use
+from panda_utils import time_series_train_val_test_split, split_features_and_labels_train_val, set_display_rows_cols
 
 
+set_display_rows_cols()
 mlflow.autolog()
 mlflow.set_experiment('Energy Use Forecasting')
 make_exploration_plots = False
@@ -29,6 +29,8 @@ def main():
     input_file = Path(r'D:\data\ML\PowerConsumption\AEP_hourly.csv')
     models_path = Path(r'D:\Models\ML') / Path(__file__).stem
     models_path.mkdir(parents=True, exist_ok=True)
+
+    get_memory_use(code_point='Available')
 
     df = pd.read_csv(input_file)
     df = df.set_index('Datetime')
@@ -56,6 +58,7 @@ def main():
                                                                                features=features, target=target)
     # Avoid accidentally bleeding test/val info
     del df
+    get_memory_use(code_point='Post data load')
 
     if make_exploration_plots:
         explore_trainval_relationships(train, val)
@@ -63,24 +66,29 @@ def main():
 
     for model_type in model_types:
         if model_type == 'xgboost':
-            learning_rates = [1, 0.3, 1e-1, 1e-2]
-            max_depths = [10, 20, 50, 70, 100, 150, 200]
+            # learning_rates = [0.3, 1e-1, 1e-2]
+            # max_depths = [10, 20, 50]
+            learning_rates = [0.3, 1e-1, 1e-2, 1e-3]
+            max_depths = [3, 5, 10, 20, 30]
         else:
             raise NotImplementedError(model_type)
 
+        run_counter = 1
         with mlflow.start_run(run_name=f'Optimize {model_type}') as parent_run:
             print(f"Starting Parent run: {parent_run.info.run_id}")
             best_rmse = np.inf
-            run_counter = 1
+
             for learning_rate in learning_rates:
                 for max_depth in max_depths:
                     with mlflow.start_run(run_name=f"Lr {learning_rate}, max_depth {max_depth}", nested=True) as run:
                         print(f"Starting child run {run_counter} / {len(learning_rates) * len(max_depths)}: "
                               f"{run.info.run_id}")
                         print(f'{model_type} with learning rate {learning_rate} and depth {max_depth}')
-                        clf = xgb.XGBRegressor(base_score=0.5, n_estimators=10000, learning_rate=learning_rate,
-                                               max_depth=max_depth)
+                        clf = xgb.XGBRegressor(base_score=0.5, n_estimators=1000, learning_rate=learning_rate,
+                                               max_depth=max_depth, eval_metric='rmse', verbosity=2, subsample=0.5)
+                        get_memory_use(code_point='Pre training')
                         model = clf.fit(X_train, y_train)
+                        get_memory_use(code_point='Post training', log_to_mlflow=True)
 
                         if make_feature_plots and model_type == 'xgboost':
                             fi = pd.DataFrame(data=model.feature_importances_,
@@ -97,6 +105,8 @@ def main():
                         train, train_rmse = get_accuracy_metrics_df(train, target, split='train')
                         val, val_rmse = get_accuracy_metrics_df(val, target, split='val')
 
+                        print(f"Train RMSE {train_rmse}, val RMSE {val_rmse}")
+
                         if val_rmse < best_rmse:
                             best_rmse = val_rmse
                             best_run_id = run.info.run_id
@@ -112,6 +122,8 @@ def main():
                                                                      save_file=models_path / (filename_trainval_preds + ".png"))
                             mlflow.log_figure(fig_trainval_preds, 'trainval_predictions.png')
                             plt.close(fig_trainval_preds)
+
+                        run_counter += 1
 
             client = mlflow.tracking.MlflowClient()
 
