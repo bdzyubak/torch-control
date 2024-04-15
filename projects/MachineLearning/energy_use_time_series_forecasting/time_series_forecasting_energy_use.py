@@ -61,103 +61,98 @@ def main():
         explore_trainval_relationships(train, val)
         explore_seasonality(train)
 
-    learning_rates = [1, 0.3, 1e-1, 1e-2, 1e-3]
-    max_depths = [10, 20, 30, 40, 50]
-    for learning_rate in learning_rates:
-        for max_depth in max_depths:
-            with mlflow.start_run() as run:
-                print(f"Starting run: {run.info.run_id}")
-                print(f'{model_type} with learning rate {learning_rate} and depth {max_depth}')
-                model, parameters = configure_model(model_type)
+    for model_type in model_types:
+        if model_type == 'xgboost':
+            learning_rates = [1, 0.3, 1e-1, 1e-2]
+            max_depths = [10, 20, 50, 70, 100, 150, 200]
+        else:
+            raise NotImplementedError(model_type)
 
-                # clf, model = train_select_model(model=model, parameters=parameters, X_train=X_train, y_train=y_train)
-                clf = xgb.XGBRegressor(base_score=0.5, n_estimators=10000, learning_rate=learning_rate, max_depth=max_depth)
-                model = clf.fit(X_train, y_train)
+        with mlflow.start_run(run_name=f'Optimize {model_type}') as parent_run:
+            print(f"Starting Parent run: {parent_run.info.run_id}")
+            best_rmse = np.inf
+            run_counter = 1
+            for learning_rate in learning_rates:
+                for max_depth in max_depths:
+                    with mlflow.start_run(run_name=f"Lr {learning_rate}, max_depth {max_depth}", nested=True) as run:
+                        print(f"Starting child run {run_counter} / {len(learning_rates) * len(max_depths)}: "
+                              f"{run.info.run_id}")
+                        print(f'{model_type} with learning rate {learning_rate} and depth {max_depth}')
+                        clf = xgb.XGBRegressor(base_score=0.5, n_estimators=10000, learning_rate=learning_rate,
+                                               max_depth=max_depth)
+                        model = clf.fit(X_train, y_train)
 
-                # if model_type == 'xgboost':
-                #     print(f"Optimal number of trees: {model.best_iteration}")
-                #     if make_feature_plots:
-                #         plot_trainval_results(results, best_iteration=model.best_iteration)
+                        if make_feature_plots and model_type == 'xgboost':
+                            fi = pd.DataFrame(data=model.feature_importances_,
+                                              index=model.feature_names_in_,
+                                              columns=['importance'])
+                            ax = fi.sort_values('importance').plot(kind='barh', title='Feature Importance')
+                            mlflow.log_figure(ax.get_figure(), 'feature_importance.png')
+                            plt.show()
 
-                if make_feature_plots and model_type == 'xgboost':
-                    fi = pd.DataFrame(data=model.feature_importances_,
-                                      index=model.feature_names_in_,
-                                      columns=['importance'])
-                    ax = fi.sort_values('importance').plot(kind='barh', title='Feature Importance')
-                    mlflow.log_figure(ax.get_figure(), 'feature_importance.png')
-                    plt.show()
+                        # Fitting is done, so add predictions back for plotting
+                        train['prediction'] = model.predict(X_train)
+                        val['prediction'] = model.predict(X_val)
 
-                # Fitting is done, so add predictions back for plotting
-                train['prediction'] = model.predict(X_train)
-                val['prediction'] = model.predict(X_val)
+                        train, train_rmse = get_accuracy_metrics_df(train, target, split='train')
+                        val, val_rmse = get_accuracy_metrics_df(val, target, split='val')
 
-                train, train_rmse = get_accuracy_metrics_df(train, target, split='train')
-                val, val_rmse = get_accuracy_metrics_df(val, target, split='val')
+                        if val_rmse < best_rmse:
+                            best_rmse = val_rmse
+                            best_run_id = run.info.run_id
+                            best_model = model
 
-                # print(f"Best model parameters")
-                # print(clf.best_params_)
+                        if make_validation_lots:
+                            # Predictions are equally bad on training and validation data - the model is underfitting
+                            # Specifically, it is unable to predict extremes
+                            trainval = pd.concat([train, val])
+                            if model_type == 'xgboost':
+                                filename_trainval_preds = f"{model_type}_depth-{max_depth}_rmse-{val_rmse}_lr-{learning_rate}"
+                            fig_trainval_preds = plot_trainval_preds(trainval, target, val_split_index=train.index[-1],
+                                                                     save_file=models_path / (filename_trainval_preds + ".png"))
+                            mlflow.log_figure(fig_trainval_preds, 'trainval_predictions.png')
+                            plt.close(fig_trainval_preds)
 
-                if make_validation_lots:
-                    # Predictions are equally bad on training and validation data - the model is underfitting
-                    # Specifically, it is unable to predict extremes
-                    trainval = pd.concat([train, val])
-                    if model_type == 'xgboost':
-                        filename_trainval_preds = f"{model_type}_depth-{max_depth}_rmse-{val_rmse}_lr-{learning_rate}"
-                    fig_trainval_preds = plot_trainval_preds(trainval, target, val_split_index=train.index[-1],
-                                                             save_file=models_path / (filename_trainval_preds + ".png"))
-                    mlflow.log_figure(fig_trainval_preds, 'trainval_predictions.png')
-                    plt.close(fig_trainval_preds)
-                    # plot_trainval_preds_week(df)
+            client = mlflow.tracking.MlflowClient()
 
-                    # train.groupby(['date'])['error'].mean().sort_values(ascending=False).head(10)
-
-
-# def train_select_model(model, parameters, X_train, y_train):
-#     clf = GridSearchCV(model, parameters, scoring='neg_root_mean_squared_error', cv=3, verbose=3)
-#     clf.fit(X_train, y_train)
-#     # print(sorted(clf.cv_results_.keys()))
-#     model = clf.best_estimator_
-#     return clf, model
-
-
-def configure_model(model_type):
-    if model_type == 'xgboost':
-        # max_depths = [5, 10, 15, 20, 30, 50]
-        max_depths = [20]
-        learning_rates = [1, 0.3, 1e-1, 1e-2]
-        # max_depths = [5, 10,]
-        # learning_rates = [1, 0.3]
-        parameters = {'booster': ['gbtree'],
-                      'max_depth': max_depths, 'objective': ['reg:squarederror'],
-                      'learning_rate': learning_rates}
-        model = xgb.XGBRegressor(base_score=0.5, n_estimators=10000)
-    else:
-        raise NotImplementedError(model_type)
-    return model, parameters
+            # Record best run as parent
+            run = client.get_run(best_run_id)
+            mlflow.log_metrics(run.data.metrics)
+            mlflow.log_params(run.data.params)
+            run.data.tags.RunName = f"xgboost-Optimal-lr{run.data.params['learning_rate']}-depth{run.data.params['max_depth']}"
+            mlflow.set_tags(run.data.tags)
 
 
 def get_accuracy_metrics_df(df, target: str, split: str):
     if split not in ['train', 'val']:
         raise ValueError('Split should be either train or val.')
     # Per datapoint metrics
-    abs_error = np.abs(df[target] - df['prediction'])
-    percent_error = np.abs(df[target] - df['prediction']) / df[target] * 100
-    df['error'] = abs_error
+    error = df[target] - df['prediction']
+    percent_error = (df[target] - df['prediction']) / df[target] * 100
+    df['error'] = error
     df['percent_error'] = percent_error
+    df['abs_error'] = df['error'].abs()
+    df['abs_percent_error'] = df['percent_error'].abs()
     df['date'] = df.index.date
 
     # Summary metrics
-    rmse = round(np.sqrt(np.mean(np.square(abs_error))))
-    mae = round(np.mean(abs_error))
-    mape = round(np.mean(percent_error), 3)
+    rmse = round(np.sqrt(df['abs_error'].pow(2).mean()))
+    mae = round(df['abs_error'].mean())
+    mape = round(df['abs_percent_error'].mean(), 1)
+
+    me = df['error'].mean().round()
+    mpe = df['percent_error'].mean().round(1)
 
     mlflow.log_metric(split + '_rmse', rmse)
     mlflow.log_metric(split + '_mae', mae)
     mlflow.log_metric(split + '_mape', mape)
+    mlflow.log_metric(split + '_me', me)
+    mlflow.log_metric(split + '_mpe', mpe)
 
     if split == 'val':
-        rmse_str, mae_str, mape_str = round_numbers([rmse, mae, mape], [0, 0, 3])
-        print(f'{split} rmse: {rmse_str}, mae: {mae}, mape: {mape}')
+        print(f'{split} Root Mean Squared Error: {rmse} MW, Mean Absolute Error: {mae} MW, '
+              f'Mean Absolute Percent Error: {mape}%')
+        print(f'{split} Mean Error: {me} MW, Mean Percent Error: {mpe}%')
     return df, rmse
 
 
