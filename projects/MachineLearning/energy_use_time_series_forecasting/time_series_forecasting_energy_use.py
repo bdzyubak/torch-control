@@ -3,13 +3,12 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-
+from sklearn.model_selection import GridSearchCV
 import xgboost as xgb
 import mlflow
-
+import sklearn
 from os_utils import get_memory_use
 from panda_utils import time_series_train_val_test_split, split_features_and_labels_train_val, set_display_rows_cols
-
 
 set_display_rows_cols()
 mlflow.autolog()
@@ -18,9 +17,9 @@ make_exploration_plots = False
 make_feature_plots = False
 make_validation_lots = True
 plt.style.use('fivethirtyeight')
-model_types = ['xgboost']  # TODO: add svm
+model_types = ['svm']  # TODO: add svm
 for model_type in model_types:
-    if model_type not in ["xgboost"]:
+    if model_type not in ["xgboost", "svm"]:
         raise NotImplementedError(f'Unsupported model type {model_type}.')
 
 
@@ -55,7 +54,8 @@ def main():
         time_series_train_val_test_split(df, val_ratio=0.15, test_ratio=0.15))
     # Features separate from targets from now on
     X_train, y_train, X_val, y_val, X_test, y_test = split_features_and_labels_train_val(train, val, test=test,
-                                                                               features=features, target=target)
+                                                                                         features=features,
+                                                                                         target=target)
     # Avoid accidentally bleeding test/val info
     del df
     get_memory_use(code_point='Post data load')
@@ -66,72 +66,65 @@ def main():
 
     for model_type in model_types:
         if model_type == 'xgboost':
-            # learning_rates = [0.3, 1e-1, 1e-2]
-            # max_depths = [10, 20, 50]
-            # learning_rates = [0.3, 1e-1, 1e-2, 1e-3]
-            # max_depths = [3, 5, 10, 20, 30]
-            learning_rates = [1, 0.3, 1e-1, 1e-2, 1e-3, 1e-4]
-            max_depths = [10]
-            subsample = 1
+            clf = xgb.XGBRegressor()
+            # run_name = f'Optimize {model_type} depth/estimators/lr'
+            # params = {'learning_rate': [1, 0.3, 1e-1, 1e-2], 'n_estimators': [100, 300, 500, 1000],
+            #           'max_depth': [3, 5, 10, 20]}
+            #
+            run_name = f'Optimize {model_type} col_sample/subsample/min_child_weight'
+            params = {'learning_rate': [1e-2], 'max_depth': [5], 'n_estimators': [300], 'subsample': [1, 0.5, 0.3, 0.1],
+                      'colsample_bytree': [1, 0.5, 0.3, 0.1], 'min_child_weight': range(1, 20, 2)}
+            # {'colsample_bytree': 1, 'learning_rate': 0.01, 'max_depth': 5, 'min_child_weight': 7, 'n_estimators': 300,
+            #  'subsample': 0.1}
+
+            # run_name = f'Optimize {model_type} child_weight'
+            # params = {'learning_rate': [1], 'max_depth': [3], 'min_child_weight': range(1, 6, 2)}
+        elif model_type == 'svm':
+            clf = sklearn.svm.SVR()
+            run_name = f'Optimize {model_type} col_sample/subsample/min_child_weight'
+            params = {'C': [0.1, 1, 10, 100, 1000],
+                      'gamma': [1, 0.1, 0.01, 0.001, 0.0001],
+                      'kernel': ['rbf']}
         else:
             raise NotImplementedError(model_type)
 
-        run_counter = 1
-        with (mlflow.start_run(run_name=f'Optimize {model_type}') as
-              parent_run):
-            print(f"Starting Parent run: {parent_run.info.run_id}")
-            best_rmse = np.inf
+        with (mlflow.start_run(run_name=run_name) as parent_run):
 
-            for learning_rate in learning_rates:
-                n_estimators = int(1000 * (1/learning_rate))
-                for max_depth in max_depths:
-                    experiment_name = f"Lr {learning_rate}, max_depth {max_depth}, subsample {subsample}"
-                    with mlflow.start_run(run_name=experiment_name,
-                                          nested=True) as run:
-                        print(f"Starting child run {run_counter} / {len(learning_rates) * len(max_depths)}: "
-                              f"{run.info.run_id}")
-                        print(experiment_name)
-                        clf = xgb.XGBRegressor(base_score=0.5, n_estimators=n_estimators,
-                                               learning_rate=learning_rate,
-                                               max_depth=max_depth, eval_metric='rmse', subsample=subsample)
-                        get_memory_use(code_point='Pre training')
-                        model = clf.fit(X_train, y_train)
-                        get_memory_use(code_point='Post training', log_to_mlflow=True)
+            xgb_grid = GridSearchCV(clf, params, scoring='neg_root_mean_squared_error', cv=2, verbose=3)
+            get_memory_use(code_point='Pre training')
+            xgb_grid.fit(X_train, y_train)
+            get_memory_use(code_point='Post training', log_to_mlflow=True)
 
-                        if make_feature_plots and model_type == 'xgboost':
-                            fi = pd.DataFrame(data=model.feature_importances_,
-                                              index=model.feature_names_in_,
-                                              columns=['importance'])
-                            ax = fi.sort_values('importance').plot(kind='barh', title='Feature Importance')
-                            mlflow.log_figure(ax.get_figure(), 'feature_importance.png')
-                            plt.show()
+            print(f"Best parameters: {xgb_grid.best_params_}")
+            model = xgb.XGBRegressor(**xgb_grid.best_params_)
+            model.fit(X_train, y_train)
 
-                        # Fitting is done, so add predictions back for plotting
-                        train['prediction'] = model.predict(X_train)
-                        val['prediction'] = model.predict(X_val)
+            if make_feature_plots and model_type == 'xgboost':
+                fi = pd.DataFrame(data=model.feature_importances_,
+                                  index=model.feature_names_in_,
+                                  columns=['importance'])
+                ax = fi.sort_values('importance').plot(kind='barh', title='Feature Importance')
+                mlflow.log_figure(ax.get_figure(), 'feature_importance.png')
+                plt.show()
 
-                        train, train_rmse = get_accuracy_metrics_df(train, target, split='train')
-                        val, val_rmse = get_accuracy_metrics_df(val, target, split='val')
+            # Fitting is done, so add predictions back for plotting
+            train['prediction'] = model.predict(X_train)
+            val['prediction'] = model.predict(X_val)
 
-                        print(f"Train RMSE {train_rmse}, Val RMSE {val_rmse}")
+            train, train_rmse = get_accuracy_metrics_df(train, target, split='train')
+            val, val_rmse = get_accuracy_metrics_df(val, target, split='val')
 
-                        if val_rmse < best_rmse:
-                            best_rmse = val_rmse
-                            best_run_id = run.info.run_id
-                            best_model = model
+            print(f"Train RMSE {train_rmse}, Val RMSE {val_rmse}")
 
-                        if make_validation_lots:
-                            # Predictions are equally bad on training and validation data - the model is underfitting
-                            # Specifically, it is unable to predict extremes
-                            trainval = pd.concat([train, val])
-                            if model_type == 'xgboost':
-                                filename_trainval_preds = f"{model_type}_depth-{max_depth}_rmse-{val_rmse}_lr-{learning_rate}"
-                            fig_trainval_preds = plot_trainval_preds(trainval, target, val_split_index=train.index[-1],
-                                                                     save_file=models_path / (filename_trainval_preds + ".png"))
-                            mlflow.log_figure(fig_trainval_preds, 'trainval_predictions.png')
-                            plt.close(fig_trainval_preds)
-
-                        run_counter += 1
+            if make_validation_lots:
+                # Predictions are equally bad on training and validation data - the model is underfitting
+                # Specifically, it is unable to predict extremes
+                trainval = pd.concat([train, val])
+                filename_trainval_preds = f"{model_type}_{val_rmse}_trainval_inference"
+                fig_trainval_preds = plot_trainval_preds(trainval, target, val_split_index=train.index[-1],
+                                                         save_file=models_path / (filename_trainval_preds + ".png"))
+                mlflow.log_figure(fig_trainval_preds, 'trainval_predictions.png')
+                plt.close(fig_trainval_preds)
 
             # client = mlflow.tracking.MlflowClient()
 
