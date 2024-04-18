@@ -68,24 +68,32 @@ def main():
         if model_type == 'xgboost':
             # learning_rates = [0.3, 1e-1, 1e-2]
             # max_depths = [10, 20, 50]
-            learning_rates = [0.3, 1e-1, 1e-2, 1e-3]
-            max_depths = [3, 5, 10, 20, 30]
+            # learning_rates = [0.3, 1e-1, 1e-2, 1e-3]
+            # max_depths = [3, 5, 10, 20, 30]
+            learning_rates = [1, 0.3, 1e-1, 1e-2, 1e-3, 1e-4]
+            max_depths = [10]
+            subsample = 1
         else:
             raise NotImplementedError(model_type)
 
         run_counter = 1
-        with mlflow.start_run(run_name=f'Optimize {model_type}') as parent_run:
+        with (mlflow.start_run(run_name=f'Optimize {model_type}') as
+              parent_run):
             print(f"Starting Parent run: {parent_run.info.run_id}")
             best_rmse = np.inf
 
             for learning_rate in learning_rates:
+                n_estimators = int(1000 * (1/learning_rate))
                 for max_depth in max_depths:
-                    with mlflow.start_run(run_name=f"Lr {learning_rate}, max_depth {max_depth}", nested=True) as run:
+                    experiment_name = f"Lr {learning_rate}, max_depth {max_depth}, subsample {subsample}"
+                    with mlflow.start_run(run_name=experiment_name,
+                                          nested=True) as run:
                         print(f"Starting child run {run_counter} / {len(learning_rates) * len(max_depths)}: "
                               f"{run.info.run_id}")
-                        print(f'{model_type} with learning rate {learning_rate} and depth {max_depth}')
-                        clf = xgb.XGBRegressor(base_score=0.5, n_estimators=1000, learning_rate=learning_rate,
-                                               max_depth=max_depth, eval_metric='rmse', verbosity=2, subsample=0.5)
+                        print(experiment_name)
+                        clf = xgb.XGBRegressor(base_score=0.5, n_estimators=n_estimators,
+                                               learning_rate=learning_rate,
+                                               max_depth=max_depth, eval_metric='rmse', subsample=subsample)
                         get_memory_use(code_point='Pre training')
                         model = clf.fit(X_train, y_train)
                         get_memory_use(code_point='Post training', log_to_mlflow=True)
@@ -105,7 +113,7 @@ def main():
                         train, train_rmse = get_accuracy_metrics_df(train, target, split='train')
                         val, val_rmse = get_accuracy_metrics_df(val, target, split='val')
 
-                        print(f"Train RMSE {train_rmse}, val RMSE {val_rmse}")
+                        print(f"Train RMSE {train_rmse}, Val RMSE {val_rmse}")
 
                         if val_rmse < best_rmse:
                             best_rmse = val_rmse
@@ -125,14 +133,14 @@ def main():
 
                         run_counter += 1
 
-            client = mlflow.tracking.MlflowClient()
+            # client = mlflow.tracking.MlflowClient()
 
-            # Record best run as parent
-            run = client.get_run(best_run_id)
-            mlflow.log_metrics(run.data.metrics)
-            mlflow.log_params(run.data.params)
-            run.data.tags.RunName = f"xgboost-Optimal-lr{run.data.params['learning_rate']}-depth{run.data.params['max_depth']}"
-            mlflow.set_tags(run.data.tags)
+            # # Record best run as parent
+            # run = client.get_run(best_run_id)
+            # mlflow.log_metrics(run.data.metrics)
+            # mlflow.log_params(run.data.params)
+            # run.data.tags['mlflow.RunName'] = f"xgboost-Optimal-lr{run.data.params['learning_rate']}-depth{run.data.params['max_depth']}"
+            # mlflow.set_tags(run.data.tags)
 
 
 def get_accuracy_metrics_df(df, target: str, split: str):
