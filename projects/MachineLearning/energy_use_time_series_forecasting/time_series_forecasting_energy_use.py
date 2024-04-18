@@ -56,8 +56,8 @@ def train_validate_model(X_train, y_train, X_val, y_val, models_path, model_type
             # params = {'learning_rate': [1], 'max_depth': [3], 'min_child_weight': range(1, 6, 2)}
 
             run_name = f'Optimal {model_type} validate'
-            params = {'learning_rate': [0.01], 'max_depth': [10], 'min_child_weight': [7], 'n_estimators': [300],
-                      'subsample': [0.1]}
+            params = {'learning_rate': [0.01], 'max_depth': [20], 'min_child_weight': [7], 'n_estimators': [300],
+                      'subsample': [1]}
 
         elif model_type == 'svm':
             clf = sklearn.svm.SVR()
