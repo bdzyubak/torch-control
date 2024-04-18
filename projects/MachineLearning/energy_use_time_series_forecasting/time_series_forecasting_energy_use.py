@@ -1,14 +1,14 @@
 from pathlib import Path
 import pandas as pd
-import numpy as np
 import matplotlib.pyplot as plt
-import seaborn as sns
 from sklearn.model_selection import GridSearchCV
 import xgboost as xgb
 import mlflow
 import sklearn
 from os_utils import get_memory_use
-from panda_utils import time_series_train_val_test_split, split_features_and_labels_train_val, set_display_rows_cols
+from panda_utils import set_display_rows_cols
+from projects.MachineLearning.energy_use_time_series_forecasting.dataloader import get_energy_use_data
+from services.dataframe_analysis.time_series import get_accuracy_metrics_df
 
 set_display_rows_cols()
 mlflow.autolog()
@@ -17,68 +17,48 @@ make_exploration_plots = False
 make_feature_plots = False
 make_validation_lots = True
 plt.style.use('fivethirtyeight')
-model_types = ['svm']  # TODO: add svm
+model_types = ['xgboost']
 for model_type in model_types:
     if model_type not in ["xgboost", "svm"]:
         raise NotImplementedError(f'Unsupported model type {model_type}.')
 
 
 def main():
-    color_pal = sns.color_palette()
-    input_file = Path(r'D:\data\ML\PowerConsumption\AEP_hourly.csv')
+    data = get_energy_use_data(make_exploration_plots)
+
     models_path = Path(r'D:\Models\ML') / Path(__file__).stem
     models_path.mkdir(parents=True, exist_ok=True)
 
-    get_memory_use(code_point='Available')
+    train_validate_model(data['X_train'], data['y_train'], data['X_val'], data['y_val'], models_path, model_types=model_types)
 
-    df = pd.read_csv(input_file)
-    df = df.set_index('Datetime')
-    df.index = pd.to_datetime(df.index)
 
-    data_source = input_file.stem.split('_')[0]
-    df = df.rename(columns={data_source + '_MW': 'MW'})
-
-    if make_exploration_plots:
-        df.plot(style='.',
-                figsize=(15, 5),
-                color=color_pal[0],
-                title='Energy Use in MW')
-        plt.show()
-
-    df = create_time_unit_features(df)
-
-    features = ['dayofyear', 'hour', 'dayofweek', 'quarter', 'month', 'year']
-    target = 'MW'
-
-    train, val, test = (
-        time_series_train_val_test_split(df, val_ratio=0.15, test_ratio=0.15))
-    # Features separate from targets from now on
-    X_train, y_train, X_val, y_val, X_test, y_test = split_features_and_labels_train_val(train, val, test=test,
-                                                                                         features=features,
-                                                                                         target=target)
-    # Avoid accidentally bleeding test/val info
-    del df
-    get_memory_use(code_point='Post data load')
-
-    if make_exploration_plots:
-        explore_trainval_relationships(train, val)
-        explore_seasonality(train)
+def train_validate_model(X_train, y_train, X_val, y_val, models_path, model_types=None):
+    if model_types is None:
+        model_types = ['xgboost']
 
     for model_type in model_types:
         if model_type == 'xgboost':
             clf = xgb.XGBRegressor()
+            # TODO: Chain these optimizations procedurally. Presently, the blocks need to be uncommented and best
+            #  parameters input into the subsequent block
+            # For each parameter where the best setting is the default - drop the parameter for simplicity
             # run_name = f'Optimize {model_type} depth/estimators/lr'
             # params = {'learning_rate': [1, 0.3, 1e-1, 1e-2], 'n_estimators': [100, 300, 500, 1000],
             #           'max_depth': [3, 5, 10, 20]}
             #
-            run_name = f'Optimize {model_type} col_sample/subsample/min_child_weight'
-            params = {'learning_rate': [1e-2], 'max_depth': [5], 'n_estimators': [300], 'subsample': [1, 0.5, 0.3, 0.1],
-                      'colsample_bytree': [1, 0.5, 0.3, 0.1], 'min_child_weight': range(1, 20, 2)}
+            # run_name = f'Optimize {model_type} col_sample/subsample/min_child_weight'
+            # params = {'learning_rate': [1e-2], 'max_depth': [5], 'n_estimators': [300], 'subsample': [1, 0.5, 0.3, 0.1],
+            #           'colsample_bytree': [1, 0.5, 0.3, 0.1], 'min_child_weight': range(1, 20, 2)}
             # {'colsample_bytree': 1, 'learning_rate': 0.01, 'max_depth': 5, 'min_child_weight': 7, 'n_estimators': 300,
             #  'subsample': 0.1}
 
             # run_name = f'Optimize {model_type} child_weight'
             # params = {'learning_rate': [1], 'max_depth': [3], 'min_child_weight': range(1, 6, 2)}
+
+            run_name = f'Optimal {model_type} validate'
+            params = {'learning_rate': [0.01], 'max_depth': [10], 'min_child_weight': [7], 'n_estimators': [300],
+                      'subsample': [0.1]}
+
         elif model_type == 'svm':
             clf = sklearn.svm.SVR()
             run_name = f'Optimize {model_type} col_sample/subsample/min_child_weight'
@@ -89,7 +69,6 @@ def main():
             raise NotImplementedError(model_type)
 
         with (mlflow.start_run(run_name=run_name) as parent_run):
-
             xgb_grid = GridSearchCV(clf, params, scoring='neg_root_mean_squared_error', cv=2, verbose=3)
             get_memory_use(code_point='Pre training')
             xgb_grid.fit(X_train, y_train)
@@ -108,70 +87,29 @@ def main():
                 plt.show()
 
             # Fitting is done, so add predictions back for plotting
-            train['prediction'] = model.predict(X_train)
-            val['prediction'] = model.predict(X_val)
+            X_train['prediction'] = model.predict(X_train)
+            X_val['prediction'] = model.predict(X_val)
 
-            train, train_rmse = get_accuracy_metrics_df(train, target, split='train')
-            val, val_rmse = get_accuracy_metrics_df(val, target, split='val')
+            train, train_rmse = get_accuracy_metrics_df(X_train, y_train, split='train', log_metrics_to_mlflow=True)
+            val, val_rmse = get_accuracy_metrics_df(X_val, y_val, split='val', log_metrics_to_mlflow=True)
 
             print(f"Train RMSE {train_rmse}, Val RMSE {val_rmse}")
 
             if make_validation_lots:
                 # Predictions are equally bad on training and validation data - the model is underfitting
                 # Specifically, it is unable to predict extremes
-                trainval = pd.concat([train, val])
+                X_trainval = pd.concat([X_train, X_val])
+                y_trainval = pd.concat([y_train, y_val])
                 filename_trainval_preds = f"{model_type}_{val_rmse}_trainval_inference"
-                fig_trainval_preds = plot_trainval_preds(trainval, target, val_split_index=train.index[-1],
+                fig_trainval_preds = plot_trainval_preds(X_trainval, y_trainval, val_split_index=train.index[-1],
                                                          save_file=models_path / (filename_trainval_preds + ".png"))
                 mlflow.log_figure(fig_trainval_preds, 'trainval_predictions.png')
                 plt.close(fig_trainval_preds)
 
-            # client = mlflow.tracking.MlflowClient()
 
-            # # Record best run as parent
-            # run = client.get_run(best_run_id)
-            # mlflow.log_metrics(run.data.metrics)
-            # mlflow.log_params(run.data.params)
-            # run.data.tags['mlflow.RunName'] = f"xgboost-Optimal-lr{run.data.params['learning_rate']}-depth{run.data.params['max_depth']}"
-            # mlflow.set_tags(run.data.tags)
-
-
-def get_accuracy_metrics_df(df, target: str, split: str):
-    if split not in ['train', 'val']:
-        raise ValueError('Split should be either train or val.')
-    # Per datapoint metrics
-    error = df[target] - df['prediction']
-    percent_error = (df[target] - df['prediction']) / df[target] * 100
-    df['error'] = error
-    df['percent_error'] = percent_error
-    df['abs_error'] = df['error'].abs()
-    df['abs_percent_error'] = df['percent_error'].abs()
-    df['date'] = df.index.date
-
-    # Summary metrics
-    rmse = round(np.sqrt(df['abs_error'].pow(2).mean()))
-    mae = round(df['abs_error'].mean())
-    mape = round(df['abs_percent_error'].mean(), 1)
-
-    me = df['error'].mean().round()
-    mpe = df['percent_error'].mean().round(1)
-
-    mlflow.log_metric(split + '_rmse', rmse)
-    mlflow.log_metric(split + '_mae', mae)
-    mlflow.log_metric(split + '_mape', mape)
-    mlflow.log_metric(split + '_me', me)
-    mlflow.log_metric(split + '_mpe', mpe)
-
-    if split == 'val':
-        print(f'{split} Root Mean Squared Error: {rmse} MW, Mean Absolute Error: {mae} MW, '
-              f'Mean Absolute Percent Error: {mape}%')
-        print(f'{split} Mean Error: {me} MW, Mean Percent Error: {mpe}%')
-    return df, rmse
-
-
-def plot_trainval_preds(df, target, val_split_index, save_file=None, display=None):
-    ax = df[target].plot(figsize=(15, 5))
-    df['prediction'].plot(ax=ax, style='.')
+def plot_trainval_preds(X, y, val_split_index, save_file=None, display=None):
+    ax = y.plot(figsize=(15, 5))
+    X['prediction'].plot(ax=ax, style='.')
     plt.legend(['Truth Data', 'Predictions'])
     plt.axvline(val_split_index, color="gray", lw=3, label=f"Val split point")
     ax.set_title('Raw Data and Prediction')
@@ -207,47 +145,6 @@ def plot_trainval_results(results, best_iteration=None):
     plt.ylabel("Loss")
     plt.legend()
     return fig
-
-
-def explore_trainval_relationships(train, val):
-    # The plot shows no major discrepancy between trends in train and val data. No need to correct for these
-    fig, ax = plt.subplots(figsize=(15, 5))
-    train.plot(ax=ax, label='Training Set', title='Train/Val Data Split')
-    val.plot(ax=ax, label='Validation Set')
-    ax.axvline('01-01-2015', color='black', ls='--')
-    ax.legend(['Training Set', 'Validation Set'])
-    plt.show()
-    train.loc[(train.index > '01-01-2010') & (train.index < '01-08-2010')] \
-        .plot(figsize=(15, 5), title='Week Of Data')
-    plt.show()
-
-
-def explore_seasonality(df):
-    fig, ax = plt.subplots(figsize=(10, 8))
-    sns.boxplot(data=df, x='hour', y='MW')
-    ax.set_title('MW by Hour')
-    plt.show()
-
-    fig, ax = plt.subplots(figsize=(10, 8))
-    sns.boxplot(data=df, x='month', y='MW', palette='Blues')
-    ax.set_title('MW by Month')
-    plt.show()
-
-
-def create_time_unit_features(df):
-    """
-    Create time series features based on time series index.
-    """
-    df = df.copy()
-    df['hour'] = df.index.hour
-    df['dayofweek'] = df.index.dayofweek
-    df['quarter'] = df.index.quarter
-    df['month'] = df.index.month
-    df['year'] = df.index.year
-    df['dayofyear'] = df.index.dayofyear
-    df['dayofmonth'] = df.index.day
-    df['weekofyear'] = df.index.isocalendar().week
-    return df
 
 
 if __name__ == '__main__':
