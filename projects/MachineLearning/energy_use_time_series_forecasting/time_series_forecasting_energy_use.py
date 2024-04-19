@@ -29,7 +29,8 @@ def main():
     models_path = Path(r'D:\Models\ML') / Path(__file__).stem
     models_path.mkdir(parents=True, exist_ok=True)
 
-    train_validate_model(data['X_train'], data['y_train'], data['X_val'], data['y_val'], models_path, model_types=model_types)
+    train_validate_model(data['X_train'], data['y_train'], data['X_val'], data['y_val'], models_path,
+                         model_types=model_types)
 
 
 def train_validate_model(X_train, y_train, X_val, y_val, models_path, model_types=None):
@@ -56,8 +57,7 @@ def train_validate_model(X_train, y_train, X_val, y_val, models_path, model_type
             # params = {'learning_rate': [1], 'max_depth': [3], 'min_child_weight': range(1, 6, 2)}
 
             run_name = f'Optimal {model_type} validate'
-            params = {'learning_rate': [0.01], 'max_depth': [20], 'min_child_weight': [7], 'n_estimators': [300],
-                      'subsample': [1]}
+            params = {'learning_rate': [0.01], 'max_depth': [20], 'n_estimators': [300]}
 
         elif model_type == 'svm':
             clf = sklearn.svm.SVR()
@@ -98,20 +98,28 @@ def train_validate_model(X_train, y_train, X_val, y_val, models_path, model_type
             if make_validation_lots:
                 # Predictions are equally bad on training and validation data - the model is underfitting
                 # Specifically, it is unable to predict extremes
-                X_trainval = pd.concat([X_train, X_val])
-                y_trainval = pd.concat([y_train, y_val])
-                filename_trainval_preds = f"{model_type}_{val_rmse}_trainval_inference"
-                fig_trainval_preds = plot_trainval_preds(X_trainval, y_trainval, val_split_index=train.index[-1],
-                                                         save_file=models_path / (filename_trainval_preds + ".png"))
-                mlflow.log_figure(fig_trainval_preds, 'trainval_predictions.png')
+
+                filename = f"{model_type}_{val_rmse}_train_predictions"
+                fig_trainval_preds = plot_trainval_preds(X_train, y_train, val_split_index=train.index.max(),
+                                                         save_file=models_path / (filename + ".png"))
+                mlflow.log_figure(fig_trainval_preds, filename + '.png')
+
+                filename = f"{model_type}_{val_rmse}_val_predictions"
+                fig_trainval_preds = plot_trainval_preds(X_val, y_val, val_split_index=train.index.max(),
+                                                         save_file=models_path / (filename + ".png"))
+                mlflow.log_figure(fig_trainval_preds, filename + '.png')
                 plt.close(fig_trainval_preds)
 
 
-def plot_trainval_preds(X, y, val_split_index, save_file=None, display=None):
+def plot_trainval_preds(X, y, val_split_index=None, save_file=None, display=None):
     ax = y.plot(figsize=(15, 5))
     X['prediction'].plot(ax=ax, style='.')
     plt.legend(['Truth Data', 'Predictions'])
-    plt.axvline(val_split_index, color="gray", lw=3, label=f"Val split point")
+    if val_split_index is not None:
+        # Use this for plotting both train and val on the same figure.
+        # Warning, this can visually make you extend good train predictions to get the impression val is better than
+        # it is
+        plt.axvline(val_split_index, color="gray", lw=3, label=f"Val split point")
     ax.set_title('Raw Data and Prediction')
 
     if save_file is not None:
