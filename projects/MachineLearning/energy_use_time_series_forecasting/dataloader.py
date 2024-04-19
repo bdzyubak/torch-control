@@ -12,6 +12,7 @@ def get_energy_use_data(make_exploration_plots=False):
     color_pal = sns.color_palette()
     input_file = Path(r'D:\data\ML\PowerConsumption\AEP_hourly.csv')
     df = pd.read_csv(input_file)
+    df.drop_duplicates(subset="Datetime", inplace=True)
     df = df.set_index('Datetime')
     df.index = pd.to_datetime(df.index)
     data_source = input_file.stem.split('_')[0]
