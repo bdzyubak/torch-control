@@ -98,6 +98,13 @@ torch-control.
 
    d) WIP: Add cross validation with datasets from the other companies available. 
 
+4) MLOps - MLflow, Docker, Cloud: 
+   
+   a) Build and tests successful for [ML](projects/MachineLearning/energy_use_time_series_forecasting/build_inference_docker_container.py)
+   
+   b) TODO: Build and container
+
+   c) TODO: Deploy to AWS 
 
 ## Operating Systems Notes 
 
