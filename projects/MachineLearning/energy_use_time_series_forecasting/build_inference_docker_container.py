@@ -1,6 +1,7 @@
 from pathlib import Path
 import mlflow
 from subprocess import Popen
+import time
 
 from dataloader import get_energy_use_data
 from docker_utils import convert_dataframe_to_json_for_docker, post_json_get_preds
@@ -52,6 +53,9 @@ if build_docker:
 
 docker_port_host = '8000'
 p = Popen(["docker", "run", "-p", f"{docker_port_host}:5001", "powerprediction:latest"])
+
+print('Paused to allow docker container to boot.')
+time.sleep(5)
 
 # Test the container
 X_val = data['X_val'].copy()
