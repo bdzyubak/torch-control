@@ -36,9 +36,14 @@ command line, these conda paths are developed by run_setup_all.py, but Pycharm o
    via the control panel on Windows or .bashrc update on Linux. 
    3) To display logs, navigate to the mlruns folder in the terminal and run: mlflow ui --port 8080
    4) Then access via browser: localhost:8080
-
-[//]: # (4&#41; Docker is currently unused, but for futrue reference)
-[//]: # (   a&#41; To install in custom location, use: start /w “” “Docker Desktop Installer.exe” install --installation-dir=G:\Docker)
+6) Docker: 
+   1) Either install docker desktop (which includes the dependencies above, or install Engine/CLI/Compose separately 
+   to avoid bloat https://docs.docker.com/engine/
+   2) To install Docker desktop to a custom location, go to the download directory and run the following in command 
+   prompt: start /w “” “Docker Desktop Installer.exe” install --installation-dir=D:\Docker)
+   3) Install gcc with apt-get on Linux, or MinGW on Windows 
+   https://dev.to/gamegods3/how-to-install-gcc-in-windows-10-the-easier-way-422j. MinGW must be installed in default 
+   location or it will be missing files
 
 
 ## Repository Organization
@@ -93,6 +98,13 @@ torch-control.
 
    d) WIP: Add cross validation with datasets from the other companies available. 
 
+4) MLOps - MLflow, Docker, Cloud: 
+   
+   a) Build and tests successful for [ML](projects/MachineLearning/energy_use_time_series_forecasting/build_inference_docker_container.py)
+   
+   b) TODO: Build and container
+
+   c) TODO: Deploy to AWS 
 
 ## Operating Systems Notes 
 
