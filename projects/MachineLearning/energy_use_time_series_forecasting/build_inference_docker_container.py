@@ -1,27 +1,22 @@
-
 from pathlib import Path
 import mlflow
+from subprocess import Popen
 
 from dataloader import get_energy_use_data
 from docker_utils import convert_dataframe_to_json_for_docker, post_json_get_preds
 from services.dataframe_analysis.time_series import get_accuracy_metrics_df
-from os_utils import run_command
+from os_utils import run_command, remove_dir
 
 build_docker = True
 
-# A refined model of this script should eventually be used for CI/CD - once a new model is registered as a release
-# candidate or code is pushed to the release branch, run the following steps to test the model fetched from mlflow as a
-# class, then test via mlflow serve, then test via Docker and make sure outputs on val data keep matching the reported
-# accuracy in the validation documents
+# Script to pull down the registered model, build a docker container, and validate that inference results still match recorded baseline
+#
+# Eventually, update and use as part of CI/CD any time a model is registered or code is pushed
+# Set a target accuracy below based on the validation docs NOT the model registry to check that the right model is being released
 
-# Get this from gridsearch logged to mlflow ui at localhost:8080
-# Optimize xgboost: [parent_experiment] / [artifacts] / [best_estimator]
-
-# Can do run
-# logged_model = 'runs:/aba1c2cb5d0f4ab6876236520dcf2706/best_estimator'
-# But better to do registered model name and version. "Staging" syntax is deprecated but alias can be used instead
 logged_model = 'models:/PowerPrediction-xgboost-v1/2'
 target_rmse = 1633
+client = mlflow.MlflowClient()
 
 # Load model as a PyFuncModel
 loaded_model = mlflow.pyfunc.load_model(logged_model)
@@ -35,15 +30,45 @@ X_val, val_rmse = get_accuracy_metrics_df(X_val, data['y_val'])
 
 # Manually enter the expected RMSE value from the release documentation (NOT the mlflow run above) as a double check
 # that the right model is being released
-assert val_rmse == target_rmse, ('mlflow class prediction does not match target. Wrong model loaded or target specified '
-                                 'from wrong release?')
+assert val_rmse == target_rmse, (
+    'mlflow class prediction does not match target. Wrong model loaded or target specified '
+    'from wrong release?')
 del X_val, val_rmse
 
 model_dir = Path(r"D:\Models\ML\powerprediction_v0p2")
 model_dir.mkdir(exist_ok=True, parents=True)
 
-## If steps below fail, debug via mlflow serve. This has better messages than once it is wrapped in docker.
-# TODO: use python interactively to add this to the automated testing workflow
+if build_docker:
+    # Download model and docker file. If first time, modify Dockerfile by adding gcc and exposing ports,
+    # and put in source tree
+    remove_dir(model_dir)
+    run_command(f"mlflow models generate-dockerfile --model-uri {logged_model} --output-directory {model_dir}")
+
+    image_name = model_dir.stem.split('_v')[0]
+    dockerfile_path = Path(__file__).parents[3] / 'dockerfiles' / 'Dockerfile_ML'
+    # Last argument is the build context i.e. where stuff to copy into the container is
+    run_command(f"docker build -t {image_name} -f {dockerfile_path} {model_dir}")
+    remove_dir(model_dir)
+
+docker_port_host = '8000'
+p = Popen(["docker", "run", "-p", f"{docker_port_host}:5001", "powerprediction:latest"])
+
+# Test the container
+X_val = data['X_val'].copy()
+X_val_json = convert_dataframe_to_json_for_docker(X_val)
+
+# Spin up the docker container
+preds = post_json_get_preds(X_val_json, docker_port_host)
+
+X_val['prediction'] = preds
+X_val, val_rmse = get_accuracy_metrics_df(X_val, data['y_val'])
+assert val_rmse == target_rmse, "Prediction via docker container inaccurate. Check dependencies, right model, right port"
+
+p.terminate()
+
+## If no response is received from the docker container, debug via mlflow serve. This has better messages than once it
+# is wrapped in docker.
+# TODO: use python functions in place of CLI to add this to the automated testing workflow
 # mlflow models serve --model-uri models:/PowerPrediction-xgboost-v1/2 --no-conda --port 5000 - successful
 # Then use the following to curl either the local docker-less serve to make sure input data is interpreted correctly
 # and predictions are received.
@@ -57,19 +82,3 @@ model_dir.mkdir(exist_ok=True, parents=True)
 # EXPOSE 5001
 # ENV SERVER_PORT 8000
 # ENV SERVER_HOST 0.0.0.0
-
-if build_docker:
-    image_name = model_dir.stem.split('_v')[0]
-    dockerfile_path = Path(__file__).parents[3] / 'dockerfiles' / 'Dockerfile_ML'
-    # Last argument is the build context i.e. where stuff to copy into the container is
-    run_command(f"docker build -t {image_name} -f {dockerfile_path} {model_dir}")
-
-# Test the container
-X_val = data['X_val'].copy()
-X_val_json = convert_dataframe_to_json_for_docker(X_val)
-
-preds = post_json_get_preds(X_val_json)
-
-X_val['prediction'] = preds
-X_val, val_rmse = get_accuracy_metrics_df(X_val, data['y_val'])
-assert val_rmse == target_rmse, "Prediction via docker container inaccurate. Check dependencies, right model, right port"
