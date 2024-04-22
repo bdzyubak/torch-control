@@ -3,11 +3,11 @@ from pathlib import Path
 import mlflow
 
 from dataloader import get_energy_use_data
-from docker_utils import add_gcc_to_dockerfile, convert_dataframe_to_json_for_docker, post_json_get_preds
+from docker_utils import convert_dataframe_to_json_for_docker, post_json_get_preds
 from services.dataframe_analysis.time_series import get_accuracy_metrics_df
 from os_utils import run_command
 
-build_docker = False
+build_docker = True
 
 # A refined model of this script should eventually be used for CI/CD - once a new model is registered as a release
 # candidate or code is pushed to the release branch, run the following steps to test the model fetched from mlflow as a
@@ -43,7 +43,7 @@ model_dir = Path(r"D:\Models\ML\powerprediction_v0p2")
 model_dir.mkdir(exist_ok=True, parents=True)
 
 ## If steps below fail, debug via mlflow serve. This has better messages than once it is wrapped in docker.
-# TODO: use python interfact to add this to the automated testing workflow
+# TODO: use python interactively to add this to the automated testing workflow
 # mlflow models serve --model-uri models:/PowerPrediction-xgboost-v1/2 --no-conda --port 5000 - successful
 # Then use the following to curl either the local docker-less serve to make sure input data is interpreted correctly
 # and predictions are received.
@@ -59,14 +59,10 @@ model_dir.mkdir(exist_ok=True, parents=True)
 # ENV SERVER_HOST 0.0.0.0
 
 if build_docker:
-    # Make docker file, add gcc, and build manually
-    run_command(f"mlflow models generate-dockerfile --model-uri {logged_model} --output-directory {model_dir}")
-    add_gcc_to_dockerfile(model_dir=model_dir)
-    # Add step to insert EXPOSE 5001
     image_name = model_dir.stem.split('_v')[0]
-    # version = 'v'+model_dir.stem.split('_v')[1]
-    run_command(f"docker build -t {image_name} {model_dir}")
-    # The build will drop the selected model as /opt/ml/model/MLmodel
+    dockerfile_path = Path(__file__).parents[3] / 'dockerfiles' / 'Dockerfile_ML'
+    # Last argument is the build context i.e. where stuff to copy into the container is
+    run_command(f"docker build -t {image_name} -f {dockerfile_path} {model_dir}")
 
 # Test the container
 X_val = data['X_val'].copy()

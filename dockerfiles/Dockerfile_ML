@@ -3,11 +3,13 @@ FROM python:3.11.7-slim
 
 RUN apt-get -y update && apt-get install -y --no-install-recommends nginx -y gcc g++
 
+ARG model_dir="model_dir"
 
 WORKDIR /opt/mlflow
 
 # Install MLflow
 RUN pip install mlflow==2.11.3
+
 
 # Copy model to image and install dependencies
 COPY model_dir/ /opt/ml/model
