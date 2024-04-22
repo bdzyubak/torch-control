@@ -90,7 +90,7 @@ torch-control.
 
 3) [ML] time series segmentation: 
 
-   a) Use the following script for hyperparameter optimization and model fitting ![plot](/projects/MachineLearning/energy_use_time_series_forecasting/xgboost_depth-10_rmse-1658.3_lr-0.001.png)
+   a) Use the following script for hyperparameter optimization and model fitting ![plot](/projects/MachineLearning/energy_use_time_series_forecasting/energy_use_forecasting_demo.png)
 
    b) WIP: Add MLOps for model/hyperparameter/data tracking
    
@@ -98,11 +98,12 @@ torch-control.
 
    d) WIP: Add cross validation with datasets from the other companies available. 
 
-4) MLOps - MLflow, Docker, Cloud: 
+4) [MLOps] - MLflow, Docker, Cloud: 
    
-   a) Build and tests successful for [ML](projects/MachineLearning/energy_use_time_series_forecasting/build_inference_docker_container.py)
+   a) Version data, training runs, models with MLFlow - implemented for [ML](projects/MachineLearning/energy_use_time_series_forecasting/time_series_forecasting_energy_use.py)
+and [NLP](projects/NaturalLanguageProcessing/MovieReviewAnalysis/fine_tune_on_kaggle_movie_sentiment.py)
    
-   b) TODO: Build and container
+   b) Build docker container - implemented for [ML](projects/MachineLearning/energy_use_time_series_forecasting/build_inference_docker_container.py)
 
    c) TODO: Deploy to AWS 
 
