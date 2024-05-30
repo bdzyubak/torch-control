@@ -23,10 +23,10 @@ def main(model_name, train_all=False, extra_class_layers=None):
 
     with mlflow.start_run() as run:
         print(f"Starting training run: {run.info.run_id}")
-        train_dataloader, val_dataloader = _set_up_dataloading(tokenizer_name=model_name)
+        train_dataloader, val_dataloader, _ = _set_up_dataloading(tokenizer_name=model_name)
 
         model, trainer = model_setup(model_save_dir,
-                                     num_classes=train_dataloader.dataset.__getitem__(0)['labels'].shape[0],
+                                     num_classes=1,
                                      model_name=model_name, do_layer_freeze=not train_all,
                                      extra_class_layers=extra_class_layers)
         mlflow.log_param("Model Name", model_name)
@@ -34,7 +34,7 @@ def main(model_name, train_all=False, extra_class_layers=None):
         trainer.fit(model, train_dataloaders=train_dataloader, val_dataloaders=val_dataloader)
 
         # To see logs, go to the mlruns folder and type: mlflow ui --port 8080 and go to
-        # localhost:808 in the browser
+        # localhost:8080 in the browser
 
 
 def _set_up_dataloading(tokenizer_name):
@@ -44,14 +44,33 @@ def _set_up_dataloading(tokenizer_name):
     # "occasionally amuses" and "none of which amounts to much of a story" all map to the label of the combination of
     # these. More intelligent non-random splitting based on sentence may improve the results here.
     df = read_dataframe(file_path)
+
+    # Convert to positive/negative to frame as classification problem
+    df.loc[df['Sentiment'] < 3, 'Sentiment'] = 0
+    df.loc[df['Sentiment'] >= 3, 'Sentiment'] = 1
+
     # The actual test file has no sentiments. We're not competing right now, so just split off a subset of train to
     # test generalizability
     # file_path = r"D:\data\SentimentAnalysisOnMovieReviews\test.tsv"
     # df_test = read_dataframe(file_path)
-    df_test, df_train, df_val = do_train_val_test_split(df)
+    df_train, df_val, df_test = do_train_val_test_split(df)
+
+    # # Create an instance of a PandasDataset
+    # # Register the dataset in mlflow.
+    # # TODO: Ridiculously slow! Refactor to only run once and then fetch
+    # dataset_train = mlflow.data.from_pandas(
+    #     df_train, source=file_path, name="Movie Sentiment", targets="Sentiment")
+    # mlflow.log_input(dataset_train, context="training")
+    # dataset_val = mlflow.data.from_pandas(
+    #     df_val, source=file_path, name="Movie Sentiment", targets="Sentiment")
+    # mlflow.log_input(dataset_val, context="validation")
+    # dataset_test = mlflow.data.from_pandas(
+    #     df_test, source=file_path, name="Movie Sentiment", targets="Sentiment")
+    # mlflow.log_input(dataset_test, context="testing")
+
     train_dataloader, val_dataloader, test_dataloader = data_loading(df_train=df_train, df_val=df_val, df_test=df_test,
                                                                      tokenizer_name=tokenizer_name)
-    return train_dataloader, val_dataloader
+    return train_dataloader, val_dataloader, test_dataloader
 
 
 def data_loading(df_train, df_val, df_test, tokenizer_name, subsample=None, batch_size=64):
@@ -87,13 +106,13 @@ class KaggleSentimentDataset(torch.utils.data.Dataset):
 
         self.examples = self.df['Phrase']
         self.encodings = tokenizer(self.df['Phrase'].to_list(), truncation=True, padding=True)
-        self.labels = one_hot_encode_sentiment(self.df['Sentiment'].values)
-        self.labels_class = self.df['Sentiment'].values
+        self.labels = self.df['Sentiment'].values
+        # self.labels_class = self.df['Sentiment'].values
 
     def __getitem__(self, idx):
         item = {key: torch.tensor(val[idx]) for key, val in self.encodings.items()}
         item['labels'] = torch.tensor(self.labels[idx], dtype=torch.float32)
-        item['labels_class'] = self.labels_class[idx]  # Do not convert to tensor, as this is used for val only
+        # item['labels_class'] = self.labels_class[idx]  # Do not convert to tensor, as this is used for val only
         return item
 
     def __len__(self):
