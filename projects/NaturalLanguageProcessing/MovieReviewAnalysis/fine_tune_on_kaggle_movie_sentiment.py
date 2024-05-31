@@ -29,7 +29,6 @@ def main(model_name, train_all=False, extra_class_layers=None):
                                      num_classes=1,
                                      model_name=model_name, do_layer_freeze=not train_all,
                                      extra_class_layers=extra_class_layers)
-        mlflow.log_param("Model Name", model_name)
 
         trainer.fit(model, train_dataloaders=train_dataloader, val_dataloaders=val_dataloader)
 
