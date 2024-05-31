@@ -11,6 +11,7 @@ numpy
 matplotlib
 seaborn
 pandas
+natsort
 
 tensorboard
 mlflow
