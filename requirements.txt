@@ -12,9 +12,11 @@ matplotlib
 seaborn
 pandas
 natsort
+tqdm
 
 tensorboard
 mlflow
 
 opendatasets
+datasets
 medmnist
