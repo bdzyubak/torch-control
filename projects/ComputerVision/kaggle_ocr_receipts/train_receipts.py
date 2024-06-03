@@ -1,7 +1,5 @@
 from pathlib import Path
 
-from PIL import Image
-
 import pandas as pd
 import xml.etree.ElementTree as ET
 
@@ -11,6 +9,8 @@ import torch
 from torch.utils.data import DataLoader
 from transformers import TrOCRProcessor
 from transformers import VisionEncoderDecoderModel
+
+from image_io import jpg_to_tensor
 
 
 def main():
@@ -38,16 +38,17 @@ def main():
     dataloader_train = DataLoader(dataset_train, batch_size=len(dataset_train), shuffle=True)
     dataloader_val = DataLoader(dataset_train, batch_size=len(dataset_val), shuffle=True)
 
-    # processor = TrOCRProcessor.from_pretrained("microsoft/trocr-base-stage1")
-    # # calling the processor is equivalent to calling the feature extractor
-    # pixel_values = processor(image, return_tensors="pt").pixel_values
-    # print(pixel_values.shape)
-    #
-    # model = VisionEncoderDecoderModel.from_pretrained("microsoft/trocr-base-stage1")
-    #
-    # generated_ids = model.generate(pixel_values)
-    # generated_text = processor.batch_decode(generated_ids, skip_special_tokens=True)[0]
-    # print(generated_text)
+    example = dataset_train.__getitem__(0)
+    processor = TrOCRProcessor.from_pretrained("microsoft/trocr-base-stage1")
+    # calling the processor is equivalent to calling the feature extractor
+    pixel_values = processor(example['image'], return_tensors="pt").pixel_values
+    print(pixel_values.shape)
+
+    model = VisionEncoderDecoderModel.from_pretrained("microsoft/trocr-base-stage1")
+
+    generated_ids = model.generate(pixel_values)
+    generated_text = processor.batch_decode(generated_ids, skip_special_tokens=True)[0]
+    print(generated_text)
 
 
 def get_annot(file_annotat):
@@ -72,42 +73,39 @@ def get_annot(file_annotat):
                         data[id]['items'] = [category[0].text]
                     else:
                         data[id]['items'].append(category[0].text)
-    df = pd.DataFrame.from_dict(data, orient='index')
-    df.sort_index(inplace=True)
+    # df = pd.DataFrame.from_dict(data, orient='index')
+    # df.sort_index(inplace=True)
+    #
+    # columns_str = ['image', 'shop', 'items']
+    # for column in columns_str:
+    #     df[column] = df[column].str.lower()
 
-    columns_str = ['image', 'shop', 'items']
-    for column in columns_str:
-        df[column] = df[column].str.lower()
-
-    return df
+    return data
 
 
 class ImageDatasetJPG(torch.utils.data.Dataset):
-    def __init__(self, df: pd.DataFrame, path_images_top: Path, subsample: int = None):
-        if subsample is None or subsample > len(df):
-            subsample = len(df)
-        self.df = df[:subsample]
+    def __init__(self, data: pd.DataFrame, path_images_top: Path, subsample: int = None):
+        if subsample is None or subsample > len(data):
+            subsample = len(data)
+        self.data = data[:subsample]
 
-        self.examples = [path_images_top / name for name in self.df[:]['image'].values]
+        self.image_paths = [path_images_top / receipt['image'] for receipt in self.data]
         images_missing = list()
-        for example in self.examples:
+        for example in self.image_paths:
             if not example.exists():
                 images_missing.append(example)
         if images_missing:
             raise OSError(f"Missing {len(images_missing)} images.")
 
-        label_columns = [name for name in df.columns if name != 'image']
-        self.labels = self.df[label_columns]
-
     def __getitem__(self, idx):
-        image = torch.tensor(Image.open(self.examples[idx]), dtype=torch.float32)
-        labels = self.df[idx]
+        image = jpg_to_tensor(self.image_paths[idx])
+        annot = self.data[idx]
 
-        item = {'image': image, 'labels': labels}
+        item = {'image': image, 'annot': annot}
         return item
 
     def __len__(self):
-        return len(self.labels)
+        return len(self.data)
 
 
 if __name__ == '__main__':
