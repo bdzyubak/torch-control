@@ -5,5 +5,6 @@ dependencies:
     # Put as many dependencies as possible at top level
   - python=3.11
   - transformers
+  - transformers[sentencepiece]
 #  - pip:
 #      - Extend, if cannot be installed with anaconda
