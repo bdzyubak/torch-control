@@ -1,7 +1,6 @@
 from pathlib import Path
 
 import pandas as pd
-import numpy as np
 from PIL import Image
 
 import xml.etree.ElementTree as ET
@@ -9,12 +8,12 @@ from sklearn.model_selection import train_test_split
 import mlflow
 import torch
 from torch.utils.data import DataLoader
+
+from ocr_lightning_wrapper import ocr
 from utils.LLM_pytorch_lighting_wrapper import trainer_setup
 
-from transformers import TrOCRProcessor, TrOCRConfig
+from transformers import TrOCRProcessor
 from utils.ocr_lightning_wrapper import FineTuneTrOCR
-from image_io import jpg_to_tensor
-
 
 mlflow.pytorch.autolog()
 mlflow.set_experiment('OCR Receipts')
@@ -25,23 +24,12 @@ def main():
         path_top = Path(r"D:\data\CV\Kaggle_text_receipts")
 
         file_annotat = r"D:\data\CV\Kaggle_text_receipts\annotations.xml"
-        model_name = "microsoft/trocr-large-printed"
+        model_name = 'microsoft/trocr-large-printed'
 
         df = get_annot(file_annotat)
 
-        # paths_images_df = [name for name in df[:]['image'].values]
-        # paths_images_os = path_images_top.glob('*')
-        # paths_images_os = [str(name) for name in paths_images_os if str(name).lower().endswith('.jpg')]
-        # TODO: Add formatting to enable sanity check
-        # images_missing_in_df = [name for name in paths_images_os if name not in paths_images_df]
-        # images_missing_in_os = [name for name in paths_images_df if name not in paths_images_os]
-        # if images_missing_in_os:
-        #     raise OSError(f"{len(images_missing_in_os)} images present in df are missing from drive")
-        # elif images_missing_in_df:
-        #     print(f'WARNING: {len(images_missing_in_df)} images present on drive are missing from df')
-
         df_train, df_val = train_test_split(df, test_size=0.3)
-        processor = TrOCRProcessor.from_pretrained(model_name)  # microsoft/trocr-base-stage1
+        processor = TrOCRProcessor.from_pretrained(model_name)
 
         dataset_train = ImageDatasetJPG(df_train, path_top, processor)
         dataset_val = ImageDatasetJPG(df_val, path_top, processor)
@@ -51,8 +39,6 @@ def main():
         dataloader_train = DataLoader(dataset_train, batch_size=1, shuffle=True)
         dataloader_val = DataLoader(dataset_val, batch_size=1, shuffle=True)
 
-        for i in range(3):
-            example = dataset_train.__getitem__(i)
         #
         trocr = FineTuneTrOCR(model_name=model_name, processor=processor)
         # # calling the processor is equivalent to calling the feature extractor
@@ -64,11 +50,10 @@ def main():
 
         print(f"Starting training run: {run.info.run_id}")
 
-        generated_ids = trocr.model.generate(next(iter(dataloader_train))['image'], max_new_tokens=100,
-                                             min_new_tokens=100)
+        # generated_ids = trocr.model.generate(next(iter(dataloader_train))['image'], max_new_tokens=100,
+        #                                      min_new_tokens=100)
+        generated_ids = trocr.model.generate(next(iter(dataloader_train))['image'])
         image_text = processor.batch_decode(generated_ids, skip_special_tokens=True)
-        print(generated_ids)
-        print(image_text)
 
         trainer = trainer_setup('TrOCR', model_save_dir)
         trainer.fit(trocr, train_dataloaders=dataloader_train, val_dataloaders=dataloader_val)
