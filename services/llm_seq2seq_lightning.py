@@ -1,9 +1,12 @@
+import numpy as np
 import torch
 from torch.nn import functional as F
 from torch.optim import AdamW
 import lightning as pl
 
 from datasets import load_metric
+
+from torch_utils import tensor_mean
 from utils.torch_utils import tensor_to_numpy, average_round_metric
 
 
@@ -29,36 +32,42 @@ class AbstractiveQAFineTuner(pl.LightningModule):
 
         tokenizer, model = initialize_model(model_name)
 
-        self.train_loss = None
-        self.train_acc_company = None
-        self.train_acc_total = None
+        self.train_loss_total = None
+        self.train_loss_company = None
+        self.train_cer_company = None
+        self.train_cer_total = None
 
-        self.val_loss = None
-        self.val_acc_company = None
-        self.val_acc_total = None
+        self.val_loss_total = None
+        self.val_loss_company = None
+        self.val_cer_company = None
+        self.val_cer_total = None
 
         self.model = model
         self.tokenizer = tokenizer
         self.model_name = model_name
 
         self.learning_rate = learning_rate
+        self.cer = load_metric("cer")  # Character error rate
 
     def forward(self, batch):
         x = self.model(batch)
         return x
 
     def on_train_epoch_start(self):
-        self.train_loss = list()
-        self.train_acc_company = list()
-        self.train_acc_total = list()
+        self.train_loss_total = list()
+        self.train_loss_company = list()
+        self.train_cer_total = list()
+        self.train_cer_company = list()
 
     def training_step(self, batch, batch_idx):
         loss_company, cer_company, loss_total, cer_total = self._run_inference_on_example(batch)
-        loss = tensor_to_numpy(torch.mean(loss_company, loss_total))
+        loss = tensor_mean(loss_company, loss_total)
 
-        self.train_loss.append(loss)
-        self.train_acc_company.append(cer_company)
-        self.train_acc_total.append(cer_total)
+        self.train_loss_total.append(tensor_to_numpy(loss_total))
+        self.train_loss_company.append(tensor_to_numpy(loss_company))
+        self.train_cer_total.append(cer_total)
+        self.train_cer_company.append(cer_company)
+
         return loss
 
     def _run_inference_on_example(self, batch):
@@ -72,49 +81,54 @@ class AbstractiveQAFineTuner(pl.LightningModule):
         attention_mask = batch['prompt_' + label_name + "_att"]
         labels = batch[label_name]
         labels_tokens = batch["tokens_"+label_name]
-        outputs = self.model.generate(input_ids=prompt, attention_mask=attention_mask, do_sample=False)
+        outputs = self.model.generate(input_ids=prompt,
+                                      attention_mask=attention_mask,
+                                      max_length=len(labels_tokens),
+                                      do_sample=False)
         preds = self.tokenizer.batch_decode(tensor_to_numpy(outputs))
 
-        loss = F.cross_entropy(labels_tokens, outputs.logitd)
-        cer = self.compute_cer(pred_ids=preds, label_ids=labels)
+        label_tokens_for_loss_calc = torch.stack(labels_tokens, dim=1).type(torch.FloatTensor).to('cuda')
+        output_tokens_for_loss_calc = outputs.type(torch.FloatTensor).to('cuda')
+        output_tokens_for_loss_calc = F.pad(output_tokens_for_loss_calc, (1,
+                                                                          label_tokens_for_loss_calc.shape[1] -
+                                                                          output_tokens_for_loss_calc.shape[1] - 1))
+        mask = output_tokens_for_loss_calc > 0
+        loss = F.cross_entropy(label_tokens_for_loss_calc[mask], output_tokens_for_loss_calc[mask])
+        cer = self.cer.compute(predictions=preds, references=labels)
         return loss, cer
 
     def on_train_epoch_end(self):
-        self.log('train_loss', average_round_metric(self.train_loss))
-        self.log('train_acc', average_round_metric(self.train_acc_company))
+        self.log('train_loss_total', average_round_metric(self.train_loss_total))
+        self.log('train_loss_company', average_round_metric(self.train_loss_company))
+        self.log('train_cer_company', average_round_metric(self.train_cer_company))
+        self.log('train_cer_total', average_round_metric(self.train_cer_total))
 
     def on_validation_epoch_start(self):
-        self.val_loss = list()
-        self.val_acc_company = list()
-        self.val_acc_total = list()
+        self.val_loss_total = list()
+        self.val_loss_company = list()
+        self.val_cer_total = list()
+        self.val_cer_company = list()
 
     def validation_step(self, batch, batch_idx):
         loss_company, cer_company, loss_total, cer_total = self._run_inference_on_example(batch)
-        loss = tensor_to_numpy(torch.mean(loss_company, loss_total))
+        loss = tensor_mean(loss_company, loss_total)
 
-        self.val_loss.append(loss)
-        self.val_acc_company.append(cer_company)
-        self.val_acc_total.append(cer_total)
+        self.val_loss_total.append(tensor_to_numpy(loss_total))
+        self.val_loss_company.append(tensor_to_numpy(loss_company))
+        self.val_cer_total.append(cer_total)
+        self.val_cer_company.append(cer_company)
         return loss
 
     def on_validation_epoch_end(self) -> None:
-        self.log('val_loss', average_round_metric(self.val_loss))
-        self.log('val_acc', average_round_metric(self.val_acc))
+        self.log('val_loss_total', average_round_metric(self.val_loss_total))
+        self.log('val_loss_company', average_round_metric(self.val_loss_company))
+        self.log('val_cer_total', average_round_metric(self.val_cer_total))
+        self.log('val_cer_company', average_round_metric(self.val_cer_company))
 
     def configure_optimizers(self):
         self.optimizer = AdamW(self.parameters(), lr=self.learning_rate)
         self.lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, patience=3, threshold=1e-3)
         return {"optimizer": self.optimizer, "lr_scheduler": self.lr_scheduler, "monitor": "val_acc"}
-
-    def compute_cer(self, pred_ids, label_ids):
-        cer_metric = load_metric("cer")  # Character error rate
-        pred_str = self.processor.batch_decode(pred_ids, skip_special_tokens=True)
-        label_ids[label_ids == -100] = self.processor.tokenizer.pad_token_id
-        label_str = self.processor.batch_decode(label_ids, skip_special_tokens=True)
-
-        cer = cer_metric.compute(predictions=pred_str, references=label_str)
-
-        return cer
 
 
 def initialize_model(model_name):

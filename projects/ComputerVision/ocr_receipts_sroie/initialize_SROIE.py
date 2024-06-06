@@ -104,12 +104,12 @@ class SROIEDatasetTextToLabel(torch.utils.data.Dataset):
 
         labels_dict = json.loads(all_annot)
 
-        # tokens_labels_company = self.tokenizer(labels_dict['total'],
-        #                                        padding="max_length",
-        #                                        max_length=25)
-        # tokens_labels_total = self.tokenizer(labels_dict['total'],
-        #                                      padding="max_length",
-        #                                      max_length=10)
+        tokens_labels_company = self.tokenizer(labels_dict['total'],
+                                               padding="max_length",
+                                               max_length=25).input_ids
+        tokens_labels_total = self.tokenizer(labels_dict['total'],
+                                             padding="max_length",
+                                             max_length=10).input_ids
 
         encoding = {"text_input": text_input,
                     "prompt_total": torch.tensor(tokens_prompt_total.input_ids),
@@ -117,9 +117,9 @@ class SROIEDatasetTextToLabel(torch.utils.data.Dataset):
                     "prompt_company": torch.tensor(tokens_prompt_company.input_ids),
                     "prompt_company_att": torch.tensor(tokens_prompt_company.attention_mask),
                     "company": labels_dict['company'],
-                    # "tokens_company": tokens_labels_company,
-                    "total": labels_dict['total']}
-                    # "tokens_total": tokens_labels_total}
+                    "tokens_company": tokens_labels_company,
+                    "total": labels_dict['total'],
+                    "tokens_total": tokens_labels_total}
         return encoding
 
     def __len__(self):
