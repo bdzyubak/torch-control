@@ -11,11 +11,11 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     tokenizer, model = initialize_model(model_name)
 
-    dataset_train = perepare_data(tokenizer)
+    dataset_train, dataset_val = perepare_data(tokenizer, model_name)
     example = next(iter(dataset_train))
 
-    get_answer(model_name, model, tokenizer, question='At what company was the purchase made?',
-               context=example['text_input'])
+    get_answer(model_name, tokenizer, model, question='At what company was the purchase made?',
+               context=example['text_input'][0])
 
 
 if __name__ == '__main__':

@@ -1,4 +1,5 @@
 import torch
+from torch.nn import functional as F
 from torch.optim import AdamW
 import lightning as pl
 
@@ -32,6 +33,10 @@ class AbstractiveQAFineTuner(pl.LightningModule):
         self.train_acc_company = None
         self.train_acc_total = None
 
+        self.val_loss = None
+        self.val_acc_company = None
+        self.val_acc_total = None
+
         self.model = model
         self.tokenizer = tokenizer
         self.model_name = model_name
@@ -64,11 +69,14 @@ class AbstractiveQAFineTuner(pl.LightningModule):
 
     def _predict_on_prompt(self, batch, label_name):
         prompt = batch['prompt_' + label_name]
-        label = batch[label_name]
-        outputs = self.model(prompt)
-        loss = outputs.loss
-        pred = tensor_to_numpy(self.model(prompt))
-        cer = self.compute_cer(pred_ids=pred, label_ids=label)
+        attention_mask = batch['prompt_' + label_name + "_att"]
+        labels = batch[label_name]
+        labels_tokens = batch["tokens_"+label_name]
+        outputs = self.model.generate(input_ids=prompt, attention_mask=attention_mask, do_sample=False)
+        preds = self.tokenizer.batch_decode(tensor_to_numpy(outputs))
+
+        loss = F.cross_entropy(labels_tokens, outputs.logitd)
+        cer = self.compute_cer(pred_ids=preds, label_ids=labels)
         return loss, cer
 
     def on_train_epoch_end(self):
@@ -77,7 +85,8 @@ class AbstractiveQAFineTuner(pl.LightningModule):
 
     def on_validation_epoch_start(self):
         self.val_loss = list()
-        self.val_acc = list()
+        self.val_acc_company = list()
+        self.val_acc_total = list()
 
     def validation_step(self, batch, batch_idx):
         loss_company, cer_company, loss_total, cer_total = self._run_inference_on_example(batch)

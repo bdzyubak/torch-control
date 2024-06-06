@@ -88,13 +88,13 @@ class SROIEDatasetTextToLabel(torch.utils.data.Dataset):
             text_input = f.read()
 
         prompt_total = make_prompt(model_name=self.model_name, context=text_input,
-                                   question="What is the total amount spent?")
+                                   question=questions[self.model_name]['total'])
         tokens_prompt_total = self.tokenizer(prompt_total,
                                              padding="max_length",
                                              max_length=self.max_input_length)
 
         prompt_company = make_prompt(model_name=self.model_name, context=text_input,
-                                     question="At what company was the purchase made?")
+                                     question=questions[self.model_name]['company'])
         tokens_prompt_company = self.tokenizer(prompt_company,
                                                padding="max_length",
                                                max_length=self.max_input_length)
@@ -103,23 +103,25 @@ class SROIEDatasetTextToLabel(torch.utils.data.Dataset):
             all_annot = f.read()
 
         labels_dict = json.loads(all_annot)
+        # tokens_company = self.tokenizer(labels_dict['company'],
+        #                                 padding="max_length",
+        #                                 max_length=25).input_ids
+        # tokens_total = self.tokenizer(labels_dict['total'],
+        #                               padding="max_length",
+        #                               max_length=10).input_ids
 
-        # tokens_labels_company = self.tokenizer(labels_dict['total'],
-        #                                        padding="max_length",
-        #                                        max_length=25)
-        # tokens_labels_total = self.tokenizer(labels_dict['total'],
-        #                                      padding="max_length",
-        #                                      max_length=10)
+        # date_tokens = self.tokenizer.tokenizer(labels_dict['date'],
+        #                                           padding="max_length",
+        #                                           max_length=self.max_target_length).input_ids
+        # address_tokens = self.tokenizer.tokenizer(labels_dict['address'],
+        #                                           padding="max_length",
+        #                                           max_length=self.max_target_length).input_ids
 
         encoding = {"text_input": text_input,
-                    "prompt_total": torch.tensor(tokens_prompt_total.input_ids),
-                    "prompt_total_att": torch.tensor(tokens_prompt_total.attention_mask),
-                    "prompt_company": torch.tensor(tokens_prompt_company.input_ids),
-                    "prompt_company_att": torch.tensor(tokens_prompt_company.attention_mask),
+                    "prompt_total": [tokens_prompt_total.input_ids, tokens_prompt_total.attention_mask],
+                    "prompt_company": [tokens_prompt_company.input_ids, tokens_prompt_company.attention_mask],
                     "company": labels_dict['company'],
-                    # "tokens_company": tokens_labels_company,
                     "total": labels_dict['total']}
-                    # "tokens_total": tokens_labels_total}
         return encoding
 
     def __len__(self):

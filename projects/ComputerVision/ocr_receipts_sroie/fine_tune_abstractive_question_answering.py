@@ -11,7 +11,7 @@ model_name = 't5-base'
 def main():
     finer_tuner = AbstractiveQAFineTuner()
 
-    dataloader_train, dataloader_val = perepare_data(finer_tuner.tokenizer, finer_tuner.model_name)
+    dataloader_train, dataloader_val = perepare_data(finer_tuner.tokenizer, finer_tuner.model_name, batch_size=5)
     # example = next(iter(dataset_train))
 
     model_save_dir = Path(r"D:\Models\LLM") / (Path(__file__).stem.replace('fine_tune', ''))
