@@ -9,11 +9,10 @@ import mlflow
 import torch
 from torch.utils.data import DataLoader
 
-from ocr_lightning_wrapper import ocr
-from utils.LLM_pytorch_lighting_wrapper import trainer_setup
+from services.training_setup import trainer_setup
 
 from transformers import TrOCRProcessor
-from utils.ocr_lightning_wrapper import FineTuneTrOCR
+from services.ocr_lightning_wrapper import FineTuneTrOCR
 
 mlflow.pytorch.autolog()
 mlflow.set_experiment('OCR Receipts')

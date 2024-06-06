@@ -1,7 +1,7 @@
 from pathlib import Path
 
 
-from utils.LLM_pytorch_lighting_wrapper import model_setup
+from services.llm_class_lighting_wrapper import model_setup
 from utils.torch_utils import get_frozen_layers
 
 

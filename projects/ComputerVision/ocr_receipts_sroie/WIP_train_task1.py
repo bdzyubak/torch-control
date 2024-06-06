@@ -3,19 +3,16 @@ from pathlib import Path
 import pandas as pd
 from PIL import Image
 
-import xml.etree.ElementTree as ET
 from sklearn.model_selection import train_test_split
 import mlflow
 import torch
 from torch.utils.data import DataLoader
 
-from ocr_lightning_wrapper import ocr
-
 from utils.os_utils import get_file
-from utils.LLM_pytorch_lighting_wrapper import trainer_setup
+from services.training_setup import trainer_setup
 
 from transformers import TrOCRProcessor
-from utils.ocr_lightning_wrapper import FineTuneTrOCR
+from services.ocr_lightning_wrapper import FineTuneTrOCR
 
 mlflow.pytorch.autolog()
 mlflow.set_experiment('OCR Receipts')

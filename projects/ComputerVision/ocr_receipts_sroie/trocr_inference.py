@@ -1,9 +1,8 @@
 
 from transformers import TrOCRProcessor, VisionEncoderDecoderModel
-from transformers import ViTModel, ViTConfig, TrOCRForCausalLM, TrOCRConfig
 from PIL import Image
 
-from ocr_lightning_wrapper import ocr, ocr_print
+from services.ocr_lightning_wrapper import ocr_print
 import matplotlib.pyplot as plt
 
 

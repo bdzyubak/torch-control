@@ -6,7 +6,7 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader
 
-from utils.LLM_pytorch_lighting_wrapper import model_setup, tokenizer_setup
+from services.llm_class_lighting_wrapper import model_setup, tokenizer_setup
 from panda_utils import set_display_rows_cols, do_train_val_test_split, read_dataframe
 
 import mlflow
