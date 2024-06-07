@@ -11,7 +11,8 @@ from utils.torch_utils import tensor_to_numpy, average_round_metric
 
 
 class AbstractiveQAFineTuner(pl.LightningModule):
-    def __init__(self, model_name: str = 't5-base', device: str = 'cuda', learning_rate: float = 5e-5):
+    def __init__(self, model_name: str = 't5-base', device: str = 'cuda', learning_rate: float = 5e-5,
+                 loss_metric='val_acc'):
         """
         A Pytorch Lightning wrapper for supported LLM models for classification to simplify training and integrate with
         MLFlow
@@ -34,11 +35,13 @@ class AbstractiveQAFineTuner(pl.LightningModule):
 
         self.train_loss_total = None
         self.train_loss_company = None
+        self.train_loss_overall = None
         self.train_cer_company = None
         self.train_cer_total = None
 
         self.val_loss_total = None
         self.val_loss_company = None
+        self.val_loss_overall = None
         self.val_cer_company = None
         self.val_cer_total = None
 
@@ -47,6 +50,7 @@ class AbstractiveQAFineTuner(pl.LightningModule):
         self.model_name = model_name
 
         self.learning_rate = learning_rate
+        self.loss_metric = loss_metric
         self.cer = load_metric("cer")  # Character error rate
 
     def forward(self, batch):
@@ -56,6 +60,7 @@ class AbstractiveQAFineTuner(pl.LightningModule):
     def on_train_epoch_start(self):
         self.train_loss_total = list()
         self.train_loss_company = list()
+        self.train_loss_overall = list()
         self.train_cer_total = list()
         self.train_cer_company = list()
 
@@ -65,9 +70,12 @@ class AbstractiveQAFineTuner(pl.LightningModule):
 
         self.train_loss_total.append(tensor_to_numpy(loss_total))
         self.train_loss_company.append(tensor_to_numpy(loss_company))
+        self.train_loss_overall.append(tensor_to_numpy(loss))
         self.train_cer_total.append(cer_total)
         self.train_cer_company.append(cer_company)
-
+        # TODO: This looks hacky. Supposedly, the issue is actually caused by detaching tensors along the way,
+        #  but which detatchment is the problem?
+        loss.requires_grad = True
         return loss
 
     def _run_inference_on_example(self, batch):
@@ -100,12 +108,14 @@ class AbstractiveQAFineTuner(pl.LightningModule):
     def on_train_epoch_end(self):
         self.log('train_loss_total', average_round_metric(self.train_loss_total))
         self.log('train_loss_company', average_round_metric(self.train_loss_company))
+        self.log('train_loss_overall', average_round_metric(self.train_loss_overall))
         self.log('train_cer_company', average_round_metric(self.train_cer_company))
         self.log('train_cer_total', average_round_metric(self.train_cer_total))
 
     def on_validation_epoch_start(self):
         self.val_loss_total = list()
         self.val_loss_company = list()
+        self.val_loss_overall = list()
         self.val_cer_total = list()
         self.val_cer_company = list()
 
@@ -115,6 +125,7 @@ class AbstractiveQAFineTuner(pl.LightningModule):
 
         self.val_loss_total.append(tensor_to_numpy(loss_total))
         self.val_loss_company.append(tensor_to_numpy(loss_company))
+        self.val_loss_overall.append(tensor_to_numpy(loss))
         self.val_cer_total.append(cer_total)
         self.val_cer_company.append(cer_company)
         return loss
@@ -122,13 +133,14 @@ class AbstractiveQAFineTuner(pl.LightningModule):
     def on_validation_epoch_end(self) -> None:
         self.log('val_loss_total', average_round_metric(self.val_loss_total))
         self.log('val_loss_company', average_round_metric(self.val_loss_company))
+        self.log('val_loss_overall', average_round_metric(self.val_loss_overall))
         self.log('val_cer_total', average_round_metric(self.val_cer_total))
         self.log('val_cer_company', average_round_metric(self.val_cer_company))
 
     def configure_optimizers(self):
         self.optimizer = AdamW(self.parameters(), lr=self.learning_rate)
         self.lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, patience=3, threshold=1e-3)
-        return {"optimizer": self.optimizer, "lr_scheduler": self.lr_scheduler, "monitor": "val_acc"}
+        return {"optimizer": self.optimizer, "lr_scheduler": self.lr_scheduler, "monitor": self.loss_metric}
 
 
 def initialize_model(model_name):

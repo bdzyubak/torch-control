@@ -9,20 +9,22 @@ model_name = 't5-base'
 # model_name = "google/pegasus-xsum"
 
 np.random.seed(123456)
+
+
 mlflow.pytorch.autolog()
-mlflow.set_experiment('Movie Review Sentiment Analysis')
+mlflow.set_experiment('OCR Receipts')
+loss_metric = 'val_loss_overall'
 
 
 def main():
-    finer_tuner = AbstractiveQAFineTuner()
+    finer_tuner = AbstractiveQAFineTuner(loss_metric=loss_metric)
 
     with mlflow.start_run() as run:
         print(f"Starting training run: {run.info.run_id}")
         dataloader_train, dataloader_val = perepare_data(finer_tuner.tokenizer, finer_tuner.model_name, batch_size=5)
-        # example = next(iter(dataset_train))
 
         model_save_dir = Path(r"D:\Models\LLM") / (Path(__file__).stem.replace('fine_tune', ''))
-        trainer = trainer_setup(finer_tuner.model_name, model_save_dir)
+        trainer = trainer_setup(finer_tuner.model_name, model_save_dir, loss_metric=loss_metric)
 
         trainer.fit(finer_tuner, train_dataloaders=dataloader_train, val_dataloaders=dataloader_val)
 

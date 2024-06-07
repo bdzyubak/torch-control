@@ -104,9 +104,13 @@ class SROIEDatasetTextToLabel(torch.utils.data.Dataset):
 
         labels_dict = json.loads(all_annot)
 
-        tokens_labels_company = self.tokenizer(labels_dict['total'],
+        labels_dict['company'] = self._sanitize_labels_empty(labels_dict['company'])
+        labels_dict['total'] = self._sanitize_labels_empty(labels_dict['total'])
+
+        tokens_labels_company = self.tokenizer(labels_dict['company'],
                                                padding="max_length",
                                                max_length=25).input_ids
+
         tokens_labels_total = self.tokenizer(labels_dict['total'],
                                              padding="max_length",
                                              max_length=10).input_ids
@@ -122,11 +126,16 @@ class SROIEDatasetTextToLabel(torch.utils.data.Dataset):
                     "tokens_total": tokens_labels_total}
         return encoding
 
+    def _sanitize_labels_empty(self, value):
+        if not value:
+            value = 'Not Specified'
+        return value
+
     def __len__(self):
         return len(self.df)
 
 
-def perepare_data(tokenizer, model_name, batch_size=20):
+def perepare_data(tokenizer, model_name, batch_size=20, subsample=None):
     data = locate_text_inputs()
     max_token_len_prompt = 3000
 
@@ -136,9 +145,9 @@ def perepare_data(tokenizer, model_name, batch_size=20):
     df = df.reset_index()
     df_train, df_val = train_test_split(df, test_size=0.3)
     dataset_train = SROIEDatasetTextToLabel(df_train, model_name=model_name, tokenizer=tokenizer,
-                                            max_input_length=max_token_len_prompt)
+                                            max_input_length=max_token_len_prompt, subsample=subsample)
     dataset_val = SROIEDatasetTextToLabel(df_val, model_name=model_name, tokenizer=tokenizer,
-                                          max_input_length=max_token_len_prompt)
+                                          max_input_length=max_token_len_prompt, subsample=subsample)
 
     dataloader_train = DataLoader(dataset_train, batch_size=batch_size, shuffle=True)
     dataloader_val = DataLoader(dataset_val, batch_size=batch_size)
