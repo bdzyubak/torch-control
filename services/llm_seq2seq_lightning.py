@@ -6,7 +6,7 @@ import lightning as pl
 
 from datasets import load_metric
 
-from torch_utils import tensor_mean
+from torch_utils import tensor_mean, freeze_layers
 from utils.torch_utils import tensor_to_numpy, average_round_metric
 
 
@@ -32,6 +32,8 @@ class AbstractiveQAFineTuner(pl.LightningModule):
         super(AbstractiveQAFineTuner, self).__init__()
 
         tokenizer, model = initialize_model(model_name)
+
+        # model = freeze_layers(["lm_head"], model=model)  # lm_head not in model.parameters?
 
         self.train_loss_total = None
         self.train_loss_company = None
